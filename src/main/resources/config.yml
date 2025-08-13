@@ -93,3 +93,10 @@ messages:
   top_header: "&cTop Hearts &7(Page %page%):"
   top_line: "&c#%rank% &7%name%: &c%hearts%&7 hearts"
   top_empty: "&7No entries."
+
+withdraw:
+  withdraw-as-shards: false   # true = give shards instead of heart items
+  shards_per_heart: 9         # how many shards represent one heart
+
+cooldowns:
+  gui_click_ms: 150

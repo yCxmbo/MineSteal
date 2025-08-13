@@ -90,15 +90,54 @@ public class HeartsCommand implements CommandExecutor, TabCompleter {
         switch (args[0].toLowerCase(Locale.ROOT)) {
             case "withdraw": {
                 if (!has(sender, "minesteal.use")) return deny(sender);
-                if (!(sender instanceof Player)) { sender.sendMessage(pref + "Only players can withdraw heart items."); return true; }
+                if (!(sender instanceof Player)) {
+                    sender.sendMessage(pref + "Only players can withdraw heart items.");
+                    return true;
+                }
+
                 int amt = parseInt(args, 1, 1);
-                if (amt <= 0) { sender.sendMessage(pref + "Usage: /hearts withdraw <amount>"); return true; }
+                if (amt <= 0) {
+                    sender.sendMessage(pref + "Usage: /hearts withdraw <amount>");
+                    return true;
+                }
+
                 Player p = (Player) sender;
-                p.getInventory().addItem(HeartItemUtil.createHeartItem(cfg, amt));
-                p.sendMessage(pref + ChatColor.GRAY + "Withdrew " + ChatColor.RED + amt + ChatColor.GRAY + " heart item(s).");
+                UUID id = p.getUniqueId();
+
+                int current = hearts.getHearts(id);
+                int min = cfg.minHearts();
+
+                // ensure we won't go below the minimum hearts
+                if (current - amt < min) {
+                    p.sendMessage(pref + ChatColor.RED + "You can’t withdraw that many. Minimum hearts: " + min + ".");
+                    return true;
+                }
+
+                // read config: withdraw as shards or heart items?
+                boolean asShards = cfg.cfg().getBoolean("withdraw.withdraw-as-shards", false);
+                int shardsPerHeart = Math.max(1, cfg.cfg().getInt("withdraw.shards_per_heart", 4));
+
+                // deduct hearts first
+                int after = hearts.addHearts(id, -amt); // clamps internally
+                if (p.isOnline()) hearts.syncOnline(p);
+
+                // give items
+                if (asShards) {
+                    int totalShards = amt * shardsPerHeart;
+                    p.getInventory().addItem(me.ycxmbo.mineSteal.hearts.HeartItemUtil.createShardItem(cfg, totalShards));
+                    p.sendMessage(pref + ChatColor.GRAY + "Withdrew " + ChatColor.RED + amt + ChatColor.GRAY +
+                            " heart(s) as " + ChatColor.RED + totalShards + ChatColor.GRAY + " shard(s). " +
+                            ChatColor.DARK_GRAY + "(Now at " + after + " hearts)");
+                } else {
+                    p.getInventory().addItem(me.ycxmbo.mineSteal.hearts.HeartItemUtil.createHeartItem(cfg, amt));
+                    p.sendMessage(pref + ChatColor.GRAY + "Withdrew " + ChatColor.RED + amt + ChatColor.GRAY +
+                            " heart item(s). " + ChatColor.DARK_GRAY + "(Now at " + after + " hearts)");
+                }
+
+                // refresh holograms/leaderboard visuals
+                me.ycxmbo.mineSteal.util.DHRefresher.refreshAll(plugin, cfg, leaderboard);
                 return true;
             }
-
             case "add":
             case "remove":
             case "set": {

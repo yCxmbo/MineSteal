@@ -1,147 +1,120 @@
 package me.ycxmbo.mineSteal.listeners;
 
 import me.ycxmbo.mineSteal.MineSteal;
-import me.ycxmbo.mineSteal.config.ConfigKeys;
 import me.ycxmbo.mineSteal.config.ConfigManager;
 import me.ycxmbo.mineSteal.gui.HeartsGUI;
-import me.ycxmbo.mineSteal.hearts.HeartItemUtil;
 import me.ycxmbo.mineSteal.hearts.HeartManager;
-import me.ycxmbo.mineSteal.util.CooldownManager;
-import org.bukkit.BanList;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
-import org.bukkit.GameMode;
 import org.bukkit.NamespacedKey;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.metadata.FixedMetadataValue;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.persistence.PersistentDataContainer;
+import org.bukkit.persistence.PersistentDataType;
 
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class GUIListener implements Listener {
-
-    private static final String META_TARGET = "minesteal_gui_target";
 
     private final MineSteal plugin;
     private final HeartManager hearts;
     private final ConfigManager cfg;
-    private final CooldownManager cooldowns;
 
-    private final NamespacedKey ACTION_KEY;
+    // Per-player lightweight GUI click cooldown (ms)
+    private final Map<UUID, Long> guiCooldowns = new ConcurrentHashMap<>();
 
-    public GUIListener(MineSteal plugin, HeartManager hearts, ConfigManager cfg, CooldownManager cooldowns) {
+    // When admins open GUI for a different target, we store that UUID here
+    private static final NamespacedKey KEY_VIEW_TARGET = new NamespacedKey(MineSteal.get(), "view_target");
+
+    public GUIListener(MineSteal plugin, HeartManager hearts, ConfigManager cfg) {
         this.plugin = plugin;
         this.hearts = hearts;
         this.cfg = cfg;
-        this.cooldowns = cooldowns;
-        this.ACTION_KEY = new NamespacedKey(plugin, "gui_action");
-        HeartsGUI.init(ACTION_KEY);
     }
 
-    private UUID getTarget(HumanEntity viewer) {
-        if (viewer.hasMetadata(META_TARGET)) {
-            try {
-                String s = viewer.getMetadata(META_TARGET).get(0).asString();
-                return UUID.fromString(s);
-            } catch (Exception ignored) {}
-        }
-        return (viewer instanceof Player) ? ((Player) viewer).getUniqueId() : null;
-    }
-
+    /** Called by /hearts gui <player> to remember the target being viewed. */
     public static void setTargetMeta(Player viewer, UUID target, MineSteal plugin) {
-        viewer.setMetadata(META_TARGET, new FixedMetadataValue(plugin, target.toString()));
+        PersistentDataContainer pdc = viewer.getPersistentDataContainer();
+        pdc.set(KEY_VIEW_TARGET, PersistentDataType.STRING, target.toString());
     }
 
-    @EventHandler
-    public void onClick(InventoryClickEvent e) {
-        if (e.getView() == null || e.getView().getTitle() == null) return;
-        if (!HeartsGUI.isOurTitle(e.getView().getTitle())) return;
+    /** Resolve which target the viewer is looking at (defaults to self). */
+    private UUID resolveTarget(Player viewer) {
+        try {
+            PersistentDataContainer pdc = viewer.getPersistentDataContainer();
+            String s = pdc.get(KEY_VIEW_TARGET, PersistentDataType.STRING);
+            if (s != null) return UUID.fromString(s);
+        } catch (Throwable ignore) {}
+        return viewer.getUniqueId();
+    }
+
+    private boolean isGuiClickOnCooldown(UUID id) {
+        int cdMs = Math.max(0, cfg.cfg().getInt("cooldowns.gui_click_ms", 150));
+        long now = System.currentTimeMillis();
+        Long last = guiCooldowns.get(id);
+        if (last != null && (now - last) < cdMs) return true;
+        guiCooldowns.put(id, now);
+        return false;
+    }
+
+    @EventHandler(ignoreCancelled = true)
+    public void onInventoryClick(InventoryClickEvent e) {
+        HumanEntity he = e.getWhoClicked();
+        if (!(he instanceof Player)) return;
+        Player p = (Player) he;
+
+        ItemStack clicked = e.getCurrentItem();
+        if (clicked == null || !clicked.hasItemMeta()) return;
+
+        // Check GUI tag
+        PersistentDataContainer pdc = clicked.getItemMeta().getPersistentDataContainer();
+        if (!pdc.has(HeartsGUI.KEY_GUI, PersistentDataType.STRING)) return;
+        String guiTag = pdc.get(HeartsGUI.KEY_GUI, PersistentDataType.STRING);
+        if (guiTag == null || !guiTag.equalsIgnoreCase("hearts")) return;
 
         e.setCancelled(true);
 
-        if (!(e.getWhoClicked() instanceof Player)) return;
-        Player clicker = (Player) e.getWhoClicked();
-        UUID targetId = getTarget(clicker);
-        if (targetId == null) return;
+        // Simple built-in cooldown to avoid spam-clicking
+        if (isGuiClickOnCooldown(p.getUniqueId())) {
+            p.sendMessage(cfg.prefix() + ChatColor.GRAY + "Please wait a moment...");
+            return;
+        }
 
-        String action = HeartsGUI.getAction(e.getCurrentItem());
-        if (action == null || action.equals("noop")) return;
+        String action = pdc.get(HeartsGUI.KEY_ACTION, PersistentDataType.STRING);
+        if (action == null) action = "";
 
-        switch (action) {
+        UUID target = resolveTarget(p);
+
+        switch (action.toLowerCase()) {
             case "withdraw": {
-                if (!clicker.hasPermission("minesteal.use")) {
-                    clicker.sendMessage(cfg.prefix() + ChatColor.RED + "You don't have permission.");
-                    return;
-                }
-                if (!clicker.hasPermission("minesteal.admin")) {
-                    long left = cooldowns.leftWithdraw(clicker.getUniqueId());
-                    if (left > 0) {
-                        clicker.sendMessage(cfg.prefix() + cfg.msg(
-                                ConfigKeys.MSG_CD_WITHDRAW,
-                                "&7You must wait &c%seconds%s&7 before withdrawing again."
-                        ).replace("%seconds%", String.valueOf(left)));
-                        return;
-                    }
-                }
-                if (e.getClick() == ClickType.RIGHT || e.getClick() == ClickType.SHIFT_RIGHT) {
-                    clicker.getInventory().addItem(HeartItemUtil.createShardItem(cfg, 9));
-                    clicker.sendMessage(cfg.prefix() + ChatColor.GRAY + "Withdrew " + ChatColor.RED + "9" + ChatColor.GRAY + " shards.");
-                } else {
-                    clicker.getInventory().addItem(HeartItemUtil.createHeartItem(cfg, 1));
-                    clicker.sendMessage(cfg.prefix() + ChatColor.GRAY + "Withdrew " + ChatColor.RED + "1" + ChatColor.GRAY + " heart.");
-                }
-                cooldowns.markWithdraw(clicker.getUniqueId());
+                // amount via PDC; fallback to 1
+                Integer amt = pdc.get(HeartsGUI.KEY_AMOUNT, PersistentDataType.INTEGER);
+                int amount = (amt != null && amt > 0) ? amt : 1;
+
+                // perform the actual withdraw logic
+                HeartsGUI.performWithdraw(
+                        p, target, amount,
+                        hearts, cfg, plugin.leaderboard()
+                );
+
+                // Re-open to reflect new heart count (next tick)
+                Bukkit.getScheduler().runTask(plugin, () ->
+                        HeartsGUI.open(p, target, hearts, cfg)
+                );
                 break;
             }
-            case "request_revive": {
-                int current = hearts.getHearts(targetId);
-                if (current > cfg.minHearts()) {
-                    clicker.sendMessage(cfg.prefix() + ChatColor.GRAY + "You are above the minimum hearts.");
-                    return;
-                }
-                if (!clicker.hasPermission("minesteal.admin")) {
-                    long left = cooldowns.leftRequestRevive(clicker.getUniqueId());
-                    if (left > 0) {
-                        clicker.sendMessage(cfg.prefix() + cfg.msg(
-                                ConfigKeys.MSG_CD_REQ_REVIVE,
-                                "&7You must wait &c%seconds%s&7 before requesting revive again."
-                        ).replace("%seconds%", String.valueOf(left)));
-                        return;
-                    }
-                }
-                String msg = ChatColor.RED + "[MineSteal] " + ChatColor.GRAY + clicker.getName() + " requests a revive.";
-                Bukkit.getOnlinePlayers().stream()
-                        .filter(p -> p.hasPermission("minesteal.admin"))
-                        .forEach(p -> p.sendMessage(msg));
-                clicker.sendMessage(cfg.prefix() + ChatColor.GRAY + "Revive request sent to staff.");
-                cooldowns.markRequestRevive(clicker.getUniqueId());
+            case "close": {
+                p.closeInventory();
                 break;
             }
-            case "admin_revive": {
-                if (!clicker.hasPermission("minesteal.admin")) {
-                    clicker.sendMessage(cfg.prefix() + ChatColor.RED + "You don't have permission.");
-                    return;
-                }
-                OfflinePlayer t = Bukkit.getOfflinePlayer(targetId);
-                if (t != null) {
-                    if (hearts.getHearts(targetId) < cfg.minHearts()) {
-                        hearts.setHearts(targetId, cfg.minHearts());
-                    }
-                    if (t.getName() != null) {
-                        Bukkit.getBanList(BanList.Type.NAME).pardon(t.getName());
-                    }
-                    if (t.isOnline()) {
-                        t.getPlayer().setGameMode(GameMode.SURVIVAL);
-                        hearts.syncOnline(t.getPlayer());
-                        t.getPlayer().sendMessage(cfg.prefix() + ChatColor.GRAY + "You have been revived.");
-                    }
-                    clicker.sendMessage(cfg.prefix() + ChatColor.GRAY + "Revived " + (t.getName() != null ? t.getName() : targetId));
-                }
+            default: {
+                // future buttons can be handled here
                 break;
             }
         }
