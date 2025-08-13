@@ -1,0 +1,20 @@
+name: MineSteal
+main: me.ycxmbo.mineSteal.MineSteal
+version: 1.3.0
+api-version: '1.21'
+authors: ["yCxmbo"]
+softdepend: [PlaceholderAPI, DecentHolograms, LiteBans]
+
+commands:
+  hearts:
+    description: View/manage hearts; GUI; admin tools; leaderboard; holograms.
+    usage: /hearts [check|gui [player]|withdraw <amount>|add <player> <amount>|remove <player> <amount>|set <player> <amount>|revive <player>|top [page]|holo <create|remove|list|refresh> [id] [size] [page]|reload]
+    aliases: [minesteal]
+
+permissions:
+  minesteal.use:
+    description: Use /hearts check & withdraw; consume heart items; open GUI
+    default: true
+  minesteal.admin:
+    description: Add/remove/set hearts, revive, reload, holo commands
+    default: op

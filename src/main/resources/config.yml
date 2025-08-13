@@ -1,0 +1,95 @@
+# How many half-hearts make one heart in Minecraft? (vanilla = 2)
+health_points_per_heart: 2
+
+# Bounds (in full hearts)
+min_hearts: 5
+max_hearts: 40
+
+# LifeSteal rules
+hearts_gained_on_kill: 1
+hearts_lost_on_death: 1
+drop_heart_item_on_kill: true
+
+# Deathban behavior when a player would drop below min_hearts
+deathban:
+  enabled: true
+  mode: SPECTATOR      # SPECTATOR or BAN
+  minutes: 120
+
+# Heart item behavior
+heart_item:
+  name: "&c♥ Heart"
+  lore:
+    - "&7Right-click to consume"
+    - "&7and gain &c+1 &7max heart."
+  refuse_if_at_cap: true
+
+# Heart Shards
+heart_shard:
+  enabled: true
+  name: "&d♦ Heart Shard"
+  lore:
+    - "&7Collect 9 to craft a &cHeart"
+    - "&7Drop from bosses & elites"
+  craft_heart_from_9_shards: true
+  recipe_type: SHAPED     # SHAPED or SHAPELESS
+
+# PvE shard drops (per-entity)
+pve_drops:
+  enabled: true
+  entities:
+    WARDEN:        { chance: 1.0,  min: 2, max: 4 }
+    WITHER:        { chance: 1.0,  min: 2, max: 3 }
+    ENDER_DRAGON:  { chance: 1.0,  min: 3, max: 5 }
+    ELDER_GUARDIAN: { chance: 0.65, min: 1, max: 2 }
+    RAVAGER:       { chance: 0.45, min: 1, max: 2 }
+    PILLAGER:      { chance: 0.10, min: 1, max: 1 }
+
+# Cooldowns (seconds)
+cooldowns:
+  consume: 5
+  withdraw: 2
+  request_revive: 60
+
+# Leaderboard (chat + scope)
+leaderboard:
+  page_size: 10
+  include_offline: true
+  online_world_only: false
+  name_color_by_team: true
+  chat_hover_show:
+    - "&7UUID: &f%uuid%"
+    - "&7Hearts: &c%hearts%"
+  chat_click_action: "GUI"  # GUI or NONE
+
+# DecentHolograms settings
+holograms:
+  enabled: true
+  id_prefix: "ms_top"            # Only holograms whose id starts with this will be refreshed
+  update_period_seconds: 20       # Background refresh interval
+  default_size: 10                # Rows rendered if not specified in the hologram id
+  default_page: 1                 # Page rendered if not specified in the hologram id
+  header: "&cTop Hearts &7(Page %page%)"
+  entry:  "&c#%rank% &7%name%: &c%hearts%"
+
+# Storage
+storage:
+  type: YAML  # per-player YAML under plugins/MineSteal/data/<uuid>.yml
+
+# Messages
+messages:
+  prefix: "&c[MineSteal]&r "
+  self_hearts: "&7You have &c%hearts%&7/&c%max% &7hearts."
+  added: "&7Gave &c%amount% &7heart(s) to &c%player%&7 (&c%new%&7 total)."
+  removed: "&7Removed &c%amount% &7heart(s) from &c%player%&7 (&c%new%&7 total)."
+  set: "&7Set &c%player%&7 hearts to &c%new%&7."
+  at_cap: "&7You're already at the heart cap (&c%max%&7)."
+  cannot_consume: "&7You can't consume this now."
+  revived: "&7Revived &c%player%&7."
+  reloaded: "&7Config reloaded."
+  cooldown_consume: "&7You must wait &c%seconds%s&7 before consuming another Heart."
+  cooldown_withdraw: "&7You must wait &c%seconds%s&7 before withdrawing again."
+  cooldown_request_revive: "&7You must wait &c%seconds%s&7 before requesting revive again."
+  top_header: "&cTop Hearts &7(Page %page%):"
+  top_line: "&c#%rank% &7%name%: &c%hearts%&7 hearts"
+  top_empty: "&7No entries."
