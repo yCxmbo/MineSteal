@@ -1,4 +1,4 @@
-package me.ycxmbo.mineSteal.config;
+package me.ycxmbo.minesteal.config;
 
 public final class ConfigKeys {
     public static final String HP_PER_HEART = "health_points_per_heart";

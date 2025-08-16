@@ -1,9 +1,10 @@
-package me.ycxmbo.mineSteal.listeners;
+package me.ycxmbo.minesteal.listeners;
 
-import me.ycxmbo.mineSteal.MineSteal;
-import me.ycxmbo.mineSteal.config.ConfigManager;
-import me.ycxmbo.mineSteal.gui.HeartsGUI;
-import me.ycxmbo.mineSteal.hearts.HeartManager;
+import me.ycxmbo.minesteal.MineSteal;
+import me.ycxmbo.minesteal.config.ConfigManager;
+import me.ycxmbo.minesteal.gui.HeartsGUI;
+import me.ycxmbo.minesteal.hearts.HeartManager;
+import me.ycxmbo.minesteal.util.LeaderboardManager;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.NamespacedKey;
@@ -32,7 +33,7 @@ public class GUIListener implements Listener {
     // When admins open GUI for a different target, we store that UUID here
     private static final NamespacedKey KEY_VIEW_TARGET = new NamespacedKey(MineSteal.get(), "view_target");
 
-    public GUIListener(MineSteal plugin, HeartManager hearts, ConfigManager cfg) {
+    public GUIListener(MineSteal plugin, HeartManager hearts, ConfigManager cfg, LeaderboardManager cooldowns) {
         this.plugin = plugin;
         this.hearts = hearts;
         this.cfg = cfg;

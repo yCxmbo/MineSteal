@@ -1,11 +1,10 @@
-package me.ycxmbo.mineSteal.util;
+package me.ycxmbo.minesteal.util;
 
 import eu.decentsoftware.holograms.api.DHAPI;
-import eu.decentsoftware.holograms.api.DecentHolograms;
 import eu.decentsoftware.holograms.api.DecentHologramsAPI;
 import eu.decentsoftware.holograms.api.holograms.Hologram;
-import me.ycxmbo.mineSteal.MineSteal;
-import me.ycxmbo.mineSteal.config.ConfigManager;
+import me.ycxmbo.minesteal.MineSteal;
+import me.ycxmbo.minesteal.config.ConfigManager;
 
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;

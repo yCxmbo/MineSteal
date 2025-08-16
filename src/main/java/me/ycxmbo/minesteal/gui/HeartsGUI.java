@@ -1,11 +1,11 @@
-package me.ycxmbo.mineSteal.gui;
+package me.ycxmbo.minesteal.gui;
 
-import me.ycxmbo.mineSteal.MineSteal;
-import me.ycxmbo.mineSteal.config.ConfigManager;
-import me.ycxmbo.mineSteal.hearts.HeartItemUtil;
-import me.ycxmbo.mineSteal.hearts.HeartManager;
-import me.ycxmbo.mineSteal.util.DHRefresher;
-import me.ycxmbo.mineSteal.util.LeaderboardManager;
+import me.ycxmbo.minesteal.MineSteal;
+import me.ycxmbo.minesteal.config.ConfigManager;
+import me.ycxmbo.minesteal.hearts.HeartItemUtil;
+import me.ycxmbo.minesteal.hearts.HeartManager;
+import me.ycxmbo.minesteal.util.DHRefresher;
+import me.ycxmbo.minesteal.util.LeaderboardManager;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;

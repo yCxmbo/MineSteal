@@ -1,20 +1,50 @@
 name: MineSteal
-main: me.ycxmbo.mineSteal.MineSteal
-version: 1.3.0
+main: me.ycxmbo.minesteal.MineSteal
+version: 1.4.0
 api-version: '1.21'
-authors: ["yCxmbo"]
+authors: yCxmbo
 softdepend: [PlaceholderAPI, DecentHolograms, LiteBans]
 
 commands:
   hearts:
-    description: View/manage hearts; GUI; admin tools; leaderboard; holograms.
-    usage: /hearts [check|gui [player]|withdraw <amount>|add <player> <amount>|remove <player> <amount>|set <player> <amount>|revive <player>|top [page]|holo <create|remove|list|refresh> [id] [size] [page]|reload]
-    aliases: [minesteal]
+    description: View or manage hearts.
+    usage: /<command> [withdraw|give|set|remove|top|reload]
+    aliases: [ls, lifesteal]
+    permission: minesteal.hearts
+  revive:
+    description: Revive a deathbanned player (uses a Revive Token in hand if required).
+    usage: /<command> <player>
+    permission: minesteal.revive.use
+  msgive:
+    description: Give heart/shard/token items (for crates/admin).
+    usage: /<command> <heart|shard|token> <player> [amount]
+    permission: minesteal.admin.give
 
 permissions:
-  minesteal.use:
-    description: Use /hearts check & withdraw; consume heart items; open GUI
+  minesteal.hearts:
+    description: Allows using /hearts (player features).
     default: true
-  minesteal.admin:
-    description: Add/remove/set hearts, revive, reload, holo commands
+  minesteal.revive.use:
+    description: Allows using /revive (token required unless config allows otherwise).
+    default: true
+  minesteal.hearts.admin:
+    description: Allows /hearts admin subcommands (give/set/remove/reload).
     default: op
+  minesteal.revive.admin:
+    description: Allows using /revive without consuming a token (if you implement that override).
+    default: op
+  minesteal.admin.give:
+    description: Allows /msgive to spawn items (used by crates via console).
+    default: op
+  minesteal.crates.reward:
+    description: Base permission for MineSteal crate rewards.
+    default: true
+  minesteal.crates.reward.heart:
+    description: Receive Heart items from crates.
+    default: true
+  minesteal.crates.reward.shard:
+    description: Receive Heart Shards from crates.
+    default: true
+  minesteal.crates.reward.token:
+    description: Receive Revive Tokens from crates.
+    default: true

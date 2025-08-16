@@ -1,8 +1,8 @@
-package me.ycxmbo.mineSteal.util;
+package me.ycxmbo.minesteal.util;
 
-import me.ycxmbo.mineSteal.MineSteal;
-import me.ycxmbo.mineSteal.config.ConfigManager;
-import me.ycxmbo.mineSteal.hearts.HeartManager;
+import me.ycxmbo.minesteal.MineSteal;
+import me.ycxmbo.minesteal.config.ConfigManager;
+import me.ycxmbo.minesteal.hearts.HeartManager;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;

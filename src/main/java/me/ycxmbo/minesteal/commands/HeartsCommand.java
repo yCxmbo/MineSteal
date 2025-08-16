@@ -1,17 +1,16 @@
-package me.ycxmbo.mineSteal.commands;
+package me.ycxmbo.minesteal.commands;
 
 import eu.decentsoftware.holograms.api.DecentHologramsAPI;
-import me.ycxmbo.mineSteal.MineSteal;
-import me.ycxmbo.mineSteal.config.ConfigKeys;
-import me.ycxmbo.mineSteal.config.ConfigManager;
-import me.ycxmbo.mineSteal.crafting.CraftingManager;
-import me.ycxmbo.mineSteal.gui.HeartsGUI;
-import me.ycxmbo.mineSteal.hearts.HeartItemUtil;
-import me.ycxmbo.mineSteal.hearts.HeartManager;
-import me.ycxmbo.mineSteal.listeners.GUIListener;
-import me.ycxmbo.mineSteal.util.DHRefresher;
-import me.ycxmbo.mineSteal.util.LeaderboardManager;
-import me.ycxmbo.mineSteal.util.LeaderboardManager.Entry;
+import me.ycxmbo.minesteal.MineSteal;
+import me.ycxmbo.minesteal.config.ConfigKeys;
+import me.ycxmbo.minesteal.config.ConfigManager;
+import me.ycxmbo.minesteal.crafting.CraftingManager;
+import me.ycxmbo.minesteal.gui.HeartsGUI;
+import me.ycxmbo.minesteal.hearts.HeartManager;
+import me.ycxmbo.minesteal.listeners.GUIListener;
+import me.ycxmbo.minesteal.util.DHRefresher;
+import me.ycxmbo.minesteal.util.LeaderboardManager;
+import me.ycxmbo.minesteal.util.LeaderboardManager.Entry;
 
 import net.kyori.adventure.text.Component;
 import org.bukkit.*;
@@ -23,7 +22,6 @@ import java.util.stream.Collectors;
 
 // DecentHolograms
 import eu.decentsoftware.holograms.api.DHAPI;
-import eu.decentsoftware.holograms.api.DecentHolograms;
 import eu.decentsoftware.holograms.api.holograms.Hologram;
 
 public class HeartsCommand implements CommandExecutor, TabCompleter {
@@ -124,18 +122,18 @@ public class HeartsCommand implements CommandExecutor, TabCompleter {
                 // give items
                 if (asShards) {
                     int totalShards = amt * shardsPerHeart;
-                    p.getInventory().addItem(me.ycxmbo.mineSteal.hearts.HeartItemUtil.createShardItem(cfg, totalShards));
+                    p.getInventory().addItem(me.ycxmbo.minesteal.hearts.HeartItemUtil.createShardItem(cfg, totalShards));
                     p.sendMessage(pref + ChatColor.GRAY + "Withdrew " + ChatColor.RED + amt + ChatColor.GRAY +
                             " heart(s) as " + ChatColor.RED + totalShards + ChatColor.GRAY + " shard(s). " +
                             ChatColor.DARK_GRAY + "(Now at " + after + " hearts)");
                 } else {
-                    p.getInventory().addItem(me.ycxmbo.mineSteal.hearts.HeartItemUtil.createHeartItem(cfg, amt));
+                    p.getInventory().addItem(me.ycxmbo.minesteal.hearts.HeartItemUtil.createHeartItem(cfg, amt));
                     p.sendMessage(pref + ChatColor.GRAY + "Withdrew " + ChatColor.RED + amt + ChatColor.GRAY +
                             " heart item(s). " + ChatColor.DARK_GRAY + "(Now at " + after + " hearts)");
                 }
 
                 // refresh holograms/leaderboard visuals
-                me.ycxmbo.mineSteal.util.DHRefresher.refreshAll(plugin, cfg, leaderboard);
+                me.ycxmbo.minesteal.util.DHRefresher.refreshAll(plugin, cfg, leaderboard);
                 return true;
             }
             case "add":

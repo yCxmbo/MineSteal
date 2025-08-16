@@ -1,6 +1,6 @@
-package me.ycxmbo.mineSteal.listeners;
+package me.ycxmbo.minesteal.listeners;
 
-import me.ycxmbo.mineSteal.hearts.HeartManager;
+import me.ycxmbo.minesteal.hearts.HeartManager;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;

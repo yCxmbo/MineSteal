@@ -1,7 +1,7 @@
-package me.ycxmbo.mineSteal.hearts;
+package me.ycxmbo.minesteal.hearts;
 
-import me.ycxmbo.mineSteal.MineSteal;
-import me.ycxmbo.mineSteal.config.ConfigManager;
+import me.ycxmbo.minesteal.MineSteal;
+import me.ycxmbo.minesteal.config.ConfigManager;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemFlag;

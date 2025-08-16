@@ -1,8 +1,8 @@
-package me.ycxmbo.mineSteal.placeholders;
+package me.ycxmbo.minesteal.placeholders;
 
-import me.ycxmbo.mineSteal.MineSteal;
-import me.ycxmbo.mineSteal.config.ConfigManager;
-import me.ycxmbo.mineSteal.hearts.HeartManager;
+import me.ycxmbo.minesteal.MineSteal;
+import me.ycxmbo.minesteal.config.ConfigManager;
+import me.ycxmbo.minesteal.hearts.HeartManager;
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
 import org.bukkit.OfflinePlayer;
 import org.jetbrains.annotations.NotNull;

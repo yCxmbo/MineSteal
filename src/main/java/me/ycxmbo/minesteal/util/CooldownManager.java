@@ -1,7 +1,7 @@
-package me.ycxmbo.mineSteal.util;
+package me.ycxmbo.minesteal.util;
 
-import me.ycxmbo.mineSteal.MineSteal;
-import me.ycxmbo.mineSteal.config.ConfigManager;
+import me.ycxmbo.minesteal.MineSteal;
+import me.ycxmbo.minesteal.config.ConfigManager;
 
 import java.util.HashMap;
 import java.util.Map;

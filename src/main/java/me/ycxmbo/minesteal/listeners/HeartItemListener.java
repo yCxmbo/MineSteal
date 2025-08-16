@@ -1,9 +1,9 @@
-package me.ycxmbo.mineSteal.listeners;
+package me.ycxmbo.minesteal.listeners;
 
-import me.ycxmbo.mineSteal.config.ConfigManager;
-import me.ycxmbo.mineSteal.hearts.HeartItemUtil;
-import me.ycxmbo.mineSteal.hearts.HeartManager;
-import me.ycxmbo.mineSteal.util.CooldownManager;
+import me.ycxmbo.minesteal.config.ConfigManager;
+import me.ycxmbo.minesteal.hearts.HeartItemUtil;
+import me.ycxmbo.minesteal.hearts.HeartManager;
+import me.ycxmbo.minesteal.util.CooldownManager;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.event.EventHandler;
@@ -35,7 +35,7 @@ public class HeartItemListener implements Listener {
             long left = cooldowns.leftConsume(e.getPlayer().getUniqueId());
             if (left > 0) {
                 e.getPlayer().sendMessage(cfg.prefix() + cfg.msg(
-                        me.ycxmbo.mineSteal.config.ConfigKeys.MSG_CD_CONSUME,
+                        me.ycxmbo.minesteal.config.ConfigKeys.MSG_CD_CONSUME,
                         "&7You must wait &c%seconds%s&7 before consuming another Heart."
                 ).replace("%seconds%", String.valueOf(left)));
                 return;
@@ -45,7 +45,7 @@ public class HeartItemListener implements Listener {
         int current = hearts.getHearts(e.getPlayer().getUniqueId());
         if (current >= cfg.maxHearts() && cfg.refuseIfAtCap()) {
             e.getPlayer().sendMessage(cfg.prefix() + cfg.msg(
-                    me.ycxmbo.mineSteal.config.ConfigKeys.MSG_AT_CAP,
+                    me.ycxmbo.minesteal.config.ConfigKeys.MSG_AT_CAP,
                     "&7You're already at the heart cap (&c%max%&7)."
             ).replace("%max%", String.valueOf(cfg.maxHearts())));
             return;

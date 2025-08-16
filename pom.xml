@@ -5,8 +5,8 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>me.ycxmbo</groupId>
-    <artifactId>MineSteal</artifactId>
-    <version>1.3.0</version>
+    <artifactId>minesteal</artifactId>
+    <version>1.5.0</version>
     <packaging>jar</packaging>
 
     <name>MineSteal</name>

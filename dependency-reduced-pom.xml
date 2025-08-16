@@ -4,7 +4,7 @@
   <groupId>me.ycxmbo</groupId>
   <artifactId>MineSteal</artifactId>
   <name>MineSteal</name>
-  <version>1.3.0</version>
+  <version>1.4.0</version>
   <build>
     <defaultGoal>clean package</defaultGoal>
     <resources>

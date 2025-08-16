@@ -1,22 +1,31 @@
-# How many half-hearts make one heart in Minecraft? (vanilla = 2)
-health_points_per_heart: 2
+# ============ MineSteal Configuration ============
 
-# Bounds (in full hearts)
-min_hearts: 5
-max_hearts: 40
+settings:
+  # How many health points (HP) are in one full heart (vanilla = 2)
+  hp-per-heart: 2
 
-# LifeSteal rules
-hearts_gained_on_kill: 1
-hearts_lost_on_death: 1
-drop_heart_item_on_kill: true
+  # Bounds (in full hearts)
+  minimum-hearts: 5
+  max-hearts: 40
 
-# Deathban behavior when a player would drop below min_hearts
-deathban:
-  enabled: true
-  mode: SPECTATOR      # SPECTATOR or BAN
-  minutes: 120
+  # LifeSteal rules (per kill/death)
+  gain-on-kill: 1         # hearts the killer gains (used when auto-transfer = true)
+  lose-on-death: 1        # hearts the victim loses (never drops below minimum-hearts)
 
-# Heart item behavior
+death:
+  # What happens to hearts on death (victim side)
+  drop-hearts-on-death: true   # true = drop heart items on the ground
+  auto-transfer: false         # true = directly give hearts to killer instead of dropping
+
+  # Permanent deathban behavior when a player hits minimum-hearts
+  deathban:
+    enabled: true
+    mode: SPECTATOR            # SPECTATOR or BAN
+    reason: "Out of hearts"
+    # Used only when mode=BAN (permanent ban; no duration)
+    ban_command: "litebans:ban %player% Out of hearts"
+
+# Heart item (consumable that adds +1 heart)
 heart_item:
   name: "&c♥ Heart"
   lore:
@@ -24,7 +33,7 @@ heart_item:
     - "&7and gain &c+1 &7max heart."
   refuse_if_at_cap: true
 
-# Heart Shards
+# Heart Shards (used to craft Heart)
 heart_shard:
   enabled: true
   name: "&d♦ Heart Shard"
@@ -34,22 +43,29 @@ heart_shard:
   craft_heart_from_9_shards: true
   recipe_type: SHAPED     # SHAPED or SHAPELESS
 
+  # Reverse: 1 Heart -> N Shards
+  reverse_recipe:
+    enabled: false
+    type: SHAPELESS       # SHAPED or SHAPELESS
+    output: 9             # how many shards you get from 1 heart
+
 # PvE shard drops (per-entity)
 pve_drops:
   enabled: true
   entities:
-    WARDEN:        { chance: 1.0,  min: 2, max: 4 }
-    WITHER:        { chance: 1.0,  min: 2, max: 3 }
-    ENDER_DRAGON:  { chance: 1.0,  min: 3, max: 5 }
+    WARDEN:         { chance: 1.0,  min: 2, max: 4 }
+    WITHER:         { chance: 1.0,  min: 2, max: 3 }
+    ENDER_DRAGON:   { chance: 1.0,  min: 3, max: 5 }
     ELDER_GUARDIAN: { chance: 0.65, min: 1, max: 2 }
-    RAVAGER:       { chance: 0.45, min: 1, max: 2 }
-    PILLAGER:      { chance: 0.10, min: 1, max: 1 }
+    RAVAGER:        { chance: 0.45, min: 1, max: 2 }
+    PILLAGER:       { chance: 0.10, min: 1, max: 1 }
 
-# Cooldowns (seconds)
+# Cooldowns
 cooldowns:
-  consume: 5
-  withdraw: 2
-  request_revive: 60
+  consume: 5                # seconds between consuming heart items
+  withdraw: 2               # seconds between /hearts withdraw
+  request_revive: 60        # seconds between /hearts request_revive
+  gui_click_ms: 150         # GUI anti-spam (milliseconds)
 
 # Leaderboard (chat + scope)
 leaderboard:
@@ -62,19 +78,19 @@ leaderboard:
     - "&7Hearts: &c%hearts%"
   chat_click_action: "GUI"  # GUI or NONE
 
-# DecentHolograms settings
+# DecentHolograms settings (auto-refreshed in the background)
 holograms:
   enabled: true
-  id_prefix: "ms_top"            # Only holograms whose id starts with this will be refreshed
-  update_period_seconds: 20       # Background refresh interval
-  default_size: 10                # Rows rendered if not specified in the hologram id
-  default_page: 1                 # Page rendered if not specified in the hologram id
+  id_prefix: "ms_top"            # Only holograms with this prefix are auto-refreshed
+  update_period_seconds: 20
+  default_size: 10
+  default_page: 1
   header: "&cTop Hearts &7(Page %page%)"
   entry:  "&c#%rank% &7%name%: &c%hearts%"
 
-# Storage
+# Storage (single YAML file under plugins/MineSteal/data/players.yml)
 storage:
-  type: YAML  # per-player YAML under plugins/MineSteal/data/<uuid>.yml
+  single-file: true
 
 # Messages
 messages:
@@ -94,9 +110,32 @@ messages:
   top_line: "&c#%rank% &7%name%: &c%hearts%&7 hearts"
   top_empty: "&7No entries."
 
+# Withdraw behavior (command & GUI)
 withdraw:
   withdraw-as-shards: false   # true = give shards instead of heart items
   shards_per_heart: 9         # how many shards represent one heart
 
-cooldowns:
-  gui_click_ms: 150
+# Revive Token (players can revive others)
+revive_token:
+  enabled: true
+  material: NETHER_STAR
+  name: "&aRevive Token"
+  lore:
+    - "&7Use to revive a deathbanned player."
+  consume_on_use: true
+
+  # if true, players must have this permission to use token or /revive
+  require_permission: false
+  permission: "minesteal.revive.use"
+
+  # Used by /revive when death.deathban.mode=BAN (permanent unban)
+  unban_command: "litebans:unban %player%"
+
+  # PvE token drops (optional)
+  drops:
+    enabled: true
+    entities:
+      ENDER_DRAGON: { chance: 0.25, min: 1, max: 2 }
+      WITHER:       { chance: 0.15, min: 1, max: 1 }
+      WARDEN:       { chance: 0.10, min: 1, max: 1 }
+      ELDER_GUARDIAN: { chance: 0.05, min: 1, max: 1 }
