@@ -8,8 +8,12 @@ import me.ycxmbo.minesteal.crafting.CraftingManager;
 import me.ycxmbo.minesteal.hearts.HeartManager;
 import me.ycxmbo.minesteal.listeners.DeathListener;
 import me.ycxmbo.minesteal.listeners.GUIListener;
+import me.ycxmbo.minesteal.listeners.HeartItemListener;
+import me.ycxmbo.minesteal.listeners.JoinSyncListener;
 import me.ycxmbo.minesteal.listeners.PveDropListener;
 import me.ycxmbo.minesteal.listeners.ReviveTokenListener;
+import me.ycxmbo.minesteal.placeholders.MineStealExpansion;
+import me.ycxmbo.minesteal.util.CooldownManager;
 import me.ycxmbo.minesteal.util.DHRefresher;
 import me.ycxmbo.minesteal.util.LeaderboardManager;
 import org.bukkit.Bukkit;
@@ -23,6 +27,7 @@ public final class MineSteal extends JavaPlugin {
     private HeartManager hearts;
     private LeaderboardManager leaderboard;
     private CraftingManager crafting;
+    private CooldownManager cooldowns;
 
     private int holoRefreshTaskId = -1;
 
@@ -33,6 +38,7 @@ public final class MineSteal extends JavaPlugin {
     public HeartManager hearts() { return hearts; }
     public LeaderboardManager leaderboard() { return leaderboard; }
     public CraftingManager crafting() { return crafting; }
+    public CooldownManager cooldowns() { return cooldowns; }
 
     /* ---------------- Lifecycle ---------------- */
 
@@ -48,6 +54,7 @@ public final class MineSteal extends JavaPlugin {
         this.hearts = new HeartManager(this);                     // single-file storage + HP sync
         this.leaderboard = new LeaderboardManager(this, hearts, config);
         this.crafting = new CraftingManager(this, config);
+        this.cooldowns = new CooldownManager(this, config);
         this.crafting.registerRecipes();
 
         // Commands
@@ -55,7 +62,7 @@ public final class MineSteal extends JavaPlugin {
         getCommand("hearts").setExecutor(heartsCmd);
         getCommand("hearts").setTabCompleter(heartsCmd);
 
-        ReviveCommand reviveCmd = new ReviveCommand(this, hearts);
+        ReviveCommand reviveCmd = new ReviveCommand(this, hearts, config);
         getCommand("revive").setExecutor(reviveCmd);
 
         MsGiveCommand msGive = new MsGiveCommand(this, config);
@@ -63,10 +70,17 @@ public final class MineSteal extends JavaPlugin {
         getCommand("msgive").setTabCompleter(msGive);
 
         // Listeners
-        Bukkit.getPluginManager().registerEvents(new GUIListener(this, hearts, config, leaderboard), this);
+        Bukkit.getPluginManager().registerEvents(new GUIListener(this, hearts, config), this);
+        Bukkit.getPluginManager().registerEvents(new HeartItemListener(hearts, config, cooldowns), this);
+        Bukkit.getPluginManager().registerEvents(new JoinSyncListener(hearts), this);
         Bukkit.getPluginManager().registerEvents(new DeathListener(this, hearts, config), this);
-        Bukkit.getPluginManager().registerEvents(new ReviveTokenListener(this, hearts), this);
+        Bukkit.getPluginManager().registerEvents(new ReviveTokenListener(this, hearts, config), this);
         Bukkit.getPluginManager().registerEvents(new PveDropListener(this, config), this);
+
+        // PlaceholderAPI expansion (optional)
+        if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
+            try { new MineStealExpansion(this).register(); } catch (Throwable ignored) {}
+        }
 
         // Background hologram refresh
         startHologramRefresher();

@@ -48,12 +48,14 @@ public class LeaderboardManager {
     public void refreshSnapshotAsync() {
         CompletableFuture.runAsync(() -> {
             Map<UUID, Integer> data = hearts.snapshotFromDisk(); // blocking but off-thread
+            Map<UUID, String> storedNames = hearts.snapshotNamesFromDisk();
             List<Entry> list = new ArrayList<>(data.size());
             for (Map.Entry<UUID, Integer> e : data.entrySet()) {
                 UUID id = e.getKey();
                 int h = e.getValue();
-                String name = Optional.ofNullable(Bukkit.getOfflinePlayer(id).getName())
-                        .orElse(id.toString().substring(0, 8));
+                String name = Optional.ofNullable(storedNames.get(id))
+                        .orElse(Optional.ofNullable(Bukkit.getOfflinePlayer(id).getName())
+                                .orElse(id.toString().substring(0, 8)));
                 list.add(new Entry(id, name, h));
             }
             list.sort(Comparator.comparingInt((Entry en) -> en.hearts).reversed()
@@ -71,6 +73,7 @@ public class LeaderboardManager {
     /** On-demand compute (sync). */
     public List<Entry> computeLeaderboard(Player viewerOrNull) {
         Map<UUID, Integer> snap = hearts.snapshotFromDisk(); // sync; prefer getSnapshot() in hot paths
+        Map<UUID, String> storedNames = hearts.snapshotNamesFromDisk();
 
         if (!cfg.lbIncludeOffline()) {
             Set<UUID> online = Bukkit.getOnlinePlayers().stream()
@@ -91,7 +94,8 @@ public class LeaderboardManager {
             UUID id = e.getKey();
             int h = e.getValue();
             OfflinePlayer op = Bukkit.getOfflinePlayer(id);
-            String name = Optional.ofNullable(op.getName()).orElse(id.toString().substring(0,8));
+            String name = Optional.ofNullable(storedNames.get(id))
+                    .orElse(Optional.ofNullable(op.getName()).orElse(id.toString().substring(0,8)));
             list.add(new Entry(id, name, h));
         }
 

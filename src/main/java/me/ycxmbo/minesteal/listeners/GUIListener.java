@@ -4,7 +4,6 @@ import me.ycxmbo.minesteal.MineSteal;
 import me.ycxmbo.minesteal.config.ConfigManager;
 import me.ycxmbo.minesteal.gui.HeartsGUI;
 import me.ycxmbo.minesteal.hearts.HeartManager;
-import me.ycxmbo.minesteal.util.LeaderboardManager;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.NamespacedKey;
@@ -33,14 +32,14 @@ public class GUIListener implements Listener {
     // When admins open GUI for a different target, we store that UUID here
     private static final NamespacedKey KEY_VIEW_TARGET = new NamespacedKey(MineSteal.get(), "view_target");
 
-    public GUIListener(MineSteal plugin, HeartManager hearts, ConfigManager cfg, LeaderboardManager cooldowns) {
+    public GUIListener(MineSteal plugin, HeartManager hearts, ConfigManager cfg) {
         this.plugin = plugin;
         this.hearts = hearts;
         this.cfg = cfg;
     }
 
     /** Called by /hearts gui <player> to remember the target being viewed. */
-    public static void setTargetMeta(Player viewer, UUID target, MineSteal plugin) {
+    public static void setTargetMeta(Player viewer, UUID target) {
         PersistentDataContainer pdc = viewer.getPersistentDataContainer();
         pdc.set(KEY_VIEW_TARGET, PersistentDataType.STRING, target.toString());
     }
@@ -101,7 +100,7 @@ public class GUIListener implements Listener {
                 // perform the actual withdraw logic
                 HeartsGUI.performWithdraw(
                         p, target, amount,
-                        hearts, cfg, plugin.leaderboard()
+                        hearts, cfg, plugin.leaderboard(), plugin.cooldowns()
                 );
 
                 // Re-open to reflect new heart count (next tick)

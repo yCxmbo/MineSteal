@@ -58,7 +58,7 @@ public class DeathListener implements Listener {
             victim.getWorld().dropItemNaturally(victim.getLocation(), drop);
         }
 
-        // If we hit (or would go below) the floor, apply permanent “deathban”
+        // If we hit (or would go below) the floor, apply permanent deathban
         if (newVictim <= min) {
             applyPermanentDeathban(victim);
         }
@@ -70,21 +70,19 @@ public class DeathListener implements Listener {
     }
 
     private void applyPermanentDeathban(Player victim) {
-        if (!plugin.getConfig().getBoolean("death.deathban.enabled", true)) return;
+        if (!cfg.deathbanEnabled()) return;
 
-        String mode = plugin.getConfig().getString("death.deathban.mode", "SPECTATOR").toUpperCase();
+        String mode = cfg.deathbanMode().toUpperCase();
         if ("BAN".equals(mode)) {
-            // Permanent LiteBans ban (no duration)
-            String reason = plugin.getConfig().getString("death.deathban.reason", "Out of hearts");
-            String cmd = plugin.getConfig().getString("death.deathban.ban_command", "litebans:ban %player% " + reason);
+            String reason = cfg.deathbanReason();
+            String cmd = cfg.deathbanBanCmd();
             String toRun = cmd.replace("%player%", victim.getName());
             Bukkit.getScheduler().runTask(plugin, () ->
                     Bukkit.dispatchCommand(Bukkit.getConsoleSender(), toRun));
             victim.kickPlayer(cfg.prefix() + ChatColor.RED + "You ran out of hearts.");
         } else {
-            // SPECTATOR permanent until another player revives with a token
             victim.setGameMode(GameMode.SPECTATOR);
-            victim.sendMessage(cfg.prefix() + ChatColor.GRAY + "You’re out of hearts. " +
+            victim.sendMessage(cfg.prefix() + ChatColor.GRAY + "You're out of hearts. " +
                     "Another player must use a Revive Token on you to return.");
         }
     }

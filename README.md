@@ -1,46 +1,38 @@
-# 🍏 MineSteal — Lifesteal SMP Plugin (Minecraft 1.21.x)
+# MineSteal — Lifesteal SMP Plugin (Minecraft 1.21+)
 
-**MineSteal** is a fully-featured **Lifesteal SMP** plugin for Minecraft **Paper/Spigot 1.21+**,  
-designed for performance, customization, and modern server aesthetics.
+MineSteal is a configurable Lifesteal SMP plugin for Paper/Spigot 1.21+. It provides heart-stealing on kill, custom heart items and shards, a leaderboard (chat + holograms), and optional revive tokens with LiteBans integration.
 
----
+## Features
+- Lifesteal system with min/max hearts
+- Heart item and shard item with crafting recipes
+- Withdraw hearts into items (or shards)
+- PvE shard/token drops (configurable per mob)
+- Leaderboard with chat hover/click and DecentHolograms support
+- Optional permanent deathban or spectator mode at min hearts
+- Revive Token flow with configurable unban command
+- Async I/O and single-file player storage
 
-## ✨ Features
-- ❤️ **Lifesteal System** — Steal hearts from players when you kill them.
-- 🩸 **Custom Heart Limits** — Configure minimum and maximum hearts.
-- ⚔ **PvP Balanced** — Fully compatible with combat plugins.
-- 📊 **Leaderboard** — Interactive, clickable leaderboard in chat & holograms.
-- 👑 **Hologram Support** — Integrated with [DecentHolograms](https://www.spigotmc.org/resources/decent-holograms.96927/).
-- ⌛ **Auto-Refresh** — Holograms & leaderboard update every few seconds.
-- ⚙ **Highly Configurable** — Edit all messages, hologram lines, and formats in `config.yml`.
-- 🛡 **LiteBans Support** — Uses UUID-based bans for punishments.
-- 🔄 **Async I/O** — Non-blocking save/load for player data.
+## Commands
+- `/hearts` — Check hearts, open GUI, withdraw, admin add/remove/set, top, holo, reload
+- `/revive <player>` — Revive a player (uses token when required)
+- `/msgive <heart|shard|token> <player> [amount]` — Give items (for crates/admin)
 
----
+See `src/main/resources/plugin.yml` for full command usage and permissions.
 
-## 📥 Installation
-1. Download the latest release from the [Releases](../../releases) page.
-2. Place the `.jar` file into your server’s `plugins/` folder.
-3. Restart your server.
-4. Configure settings in `plugins/MineSteal/config.yml`.
-5. Enjoy your Lifesteal SMP server!
+## Configuration
+The default `config.yml` is documented and ready to use. Key areas:
+- `settings.*`: base hearts and rules
+- `heart_item` and `heart_shard`: names/lore and crafting
+- `withdraw.*`: withdraw behavior
+- `leaderboard.*` and `holograms.*`: chat and hologram settings
+- `revive_token.*`: enable/permission/material/unban command
+- `pve_drops.*`: per-entity drop tables
 
----
+## Building
+Requires Java 21 and Maven. Build with:
 
-## 📝 Commands
-| Command | Description | Permission |
-|---------|-------------|------------|
-| `/hearts` | View your hearts | `minesteal.hearts` |
-| `/hearts top` | Show top players | `minesteal.top` |
-| `/hearts holo` | Create hologram leaderboard | `minesteal.holo` |
-| `/minesteal reload` | Reload plugin configuration | `minesteal.reload` |
+```
+mvn clean package
+```
 
----
-
-## 🔧 Configuration
-Example `config.yml` hologram section:
-```yaml
-hologram:
-  title: "&a&lTop Hearts"
-  format: "&e%position%. &a%player% &7- &c%hearts% ❤"
-  refresh-interval: 30 # seconds
+The shaded jar will be in `target/`.

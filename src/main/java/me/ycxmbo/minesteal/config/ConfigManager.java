@@ -51,9 +51,11 @@ public class ConfigManager {
         return color(cfg().getString("messages.prefix", "&c[MineSteal]&r "));
     }
 
-    /** Convenience: messages.msg("top_empty") → colored text. */
+    /** Convenience: messages.msg("top_empty") -> colored text. Accepts either "top_empty" or "messages.top_empty". */
     public String msg(String key) {
-        return color(cfg().getString("messages." + key, ""));
+        String path = (key == null) ? "messages." : key;
+        if (!path.startsWith("messages.")) path = "messages." + path;
+        return color(cfg().getString(path, ""));
     }
 
     /** Convenience with very light %placeholder% replacement (Map). */
@@ -107,7 +109,7 @@ public class ConfigManager {
 
     /* ---------------- Heart Item ---------------- */
 
-    public String heartItemName() { return color(cfg().getString("heart_item.name", "&c♥ Heart")); }
+    public String heartItemName() { return color(cfg().getString("heart_item.name", "&cHeart")); }
     public List<String> heartItemLore() {
         List<String> lore = cfg().getStringList("heart_item.lore");
         if (lore == null) lore = Collections.emptyList();
@@ -118,7 +120,7 @@ public class ConfigManager {
     /* ---------------- Shards ---------------- */
 
     public boolean shardEnabled()      { return cfg().getBoolean("heart_shard.enabled", true); }
-    public String  shardName()         { return color(cfg().getString("heart_shard.name", "&d♦ Heart Shard")); }
+    public String  shardName()         { return color(cfg().getString("heart_shard.name", "&dHeart Shard")); }
     public List<String> shardLore() {
         List<String> lore = cfg().getStringList("heart_shard.lore");
         if (lore == null) lore = Collections.emptyList();
@@ -167,6 +169,7 @@ public class ConfigManager {
 
     public boolean reviveEnabled()           { return cfg().getBoolean("revive_token.enabled", true); }
     public boolean reviveRequirePermission() { return cfg().getBoolean("revive_token.require_permission", false); }
+    public boolean reviveAllowSelf()         { return cfg().getBoolean("revive_token.allow_self", false); }
     public String  revivePermission()        { return cfg().getString("revive_token.permission", "minesteal.revive.use"); }
     public boolean reviveConsumeOnUse()      { return cfg().getBoolean("revive_token.consume_on_use", true); }
     public String  reviveUnbanCommand()      { return cfg().getString("revive_token.unban_command", "litebans:unban %player%"); }

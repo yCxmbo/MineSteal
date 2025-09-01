@@ -28,7 +28,7 @@ public class MsGiveCommand implements CommandExecutor, TabCompleter {
         final String pref = cfg.prefix();
 
         if (!sender.hasPermission("minesteal.admin.give")) {
-            sender.sendMessage(pref + ChatColor.RED + "You don’t have permission.");
+            sender.sendMessage(pref + ChatColor.RED + "You don't have permission.");
             return true;
         }
 
@@ -62,7 +62,7 @@ public class MsGiveCommand implements CommandExecutor, TabCompleter {
                 break;
             case "token":
             case "revive":
-                toGive = me.ycxmbo.minesteal.items.ReviveTokenUtil.createToken(cfg, amount);
+                toGive = ReviveTokenUtil.createToken(cfg, amount);
                 break;
             default:
                 sender.sendMessage(pref + ChatColor.RED + "Unknown type: " + type + ChatColor.GRAY + " (use heart|shard|token)");
@@ -98,3 +98,4 @@ public class MsGiveCommand implements CommandExecutor, TabCompleter {
         return out;
     }
 }
+

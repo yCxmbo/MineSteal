@@ -30,8 +30,8 @@ public class HeartItemListener implements Listener {
         ItemStack item = e.getItem();
         if (!HeartItemUtil.isHeartItem(item)) return;
 
-        // Cooldown
-        if (!e.getPlayer().hasPermission("minesteal.admin")) {
+        // Cooldown (admins bypass)
+        if (!e.getPlayer().hasPermission("minesteal.hearts.admin")) {
             long left = cooldowns.leftConsume(e.getPlayer().getUniqueId());
             if (left > 0) {
                 e.getPlayer().sendMessage(cfg.prefix() + cfg.msg(

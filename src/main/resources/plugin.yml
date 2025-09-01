@@ -1,14 +1,14 @@
 name: MineSteal
 main: me.ycxmbo.minesteal.MineSteal
-version: 1.4.0
+version: 1.5.0
 api-version: '1.21'
-authors: yCxmbo
+authors: [ 'yCxmbo' ]
 softdepend: [PlaceholderAPI, DecentHolograms, LiteBans]
 
 commands:
   hearts:
     description: View or manage hearts.
-    usage: /<command> [withdraw|give|set|remove|top|reload]
+    usage: /<command> [check|gui|withdraw|request_revive|add|remove|set|revive|top|reload|holo]
     aliases: [ls, lifesteal]
     permission: minesteal.hearts
   revive:

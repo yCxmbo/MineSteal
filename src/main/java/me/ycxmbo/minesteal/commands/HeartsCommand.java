@@ -9,6 +9,7 @@ import me.ycxmbo.minesteal.gui.HeartsGUI;
 import me.ycxmbo.minesteal.hearts.HeartManager;
 import me.ycxmbo.minesteal.listeners.GUIListener;
 import me.ycxmbo.minesteal.util.DHRefresher;
+import me.ycxmbo.minesteal.items.ReviveTokenUtil;
 import me.ycxmbo.minesteal.util.LeaderboardManager;
 import me.ycxmbo.minesteal.util.LeaderboardManager.Entry;
 
@@ -52,7 +53,7 @@ public class HeartsCommand implements CommandExecutor, TabCompleter {
                 sender.sendMessage(pref + "Console must specify a player: /hearts check <player>");
                 return true;
             }
-            if (!has(sender, "minesteal.use")) return deny(sender);
+            if (!has(sender, "minesteal.hearts")) return deny(sender);
             Player p = (Player) sender;
             int h = hearts.getHearts(p.getUniqueId());
             p.sendMessage(pref + cfg.msg(ConfigKeys.MSG_SELF_HEARTS, "&7You have &c%hearts%&7/&c%max% &7hearts.")
@@ -69,7 +70,7 @@ public class HeartsCommand implements CommandExecutor, TabCompleter {
             Player viewer = (Player) sender;
             UUID target = viewer.getUniqueId();
             if (args.length >= 2) {
-                if (!viewer.hasPermission("minesteal.admin")) {
+                if (!viewer.hasPermission("minesteal.hearts.admin")) {
                     viewer.sendMessage(pref + ChatColor.RED + "You don't have permission.");
                     return true;
                 }
@@ -80,14 +81,55 @@ public class HeartsCommand implements CommandExecutor, TabCompleter {
                 }
                 target = op.getUniqueId();
             }
-            GUIListener.setTargetMeta(viewer, target, plugin);
+            GUIListener.setTargetMeta(viewer, target);
             HeartsGUI.open(viewer, target, hearts, cfg);
             return true;
         }
 
         switch (args[0].toLowerCase(Locale.ROOT)) {
+            case "request_revive": {
+                if (!(sender instanceof Player)) { sender.sendMessage(pref + "Only players."); return true; }
+                Player p = (Player) sender;
+                if (!has(sender, "minesteal.hearts")) return deny(sender);
+
+                // cooldown (admins bypass)
+                if (!p.hasPermission("minesteal.hearts.admin")) {
+                    long left = plugin.cooldowns().leftRequestRevive(p.getUniqueId());
+                    if (left > 0) {
+                        p.sendMessage(pref + cfg.msg("cooldown_request_revive", "&7You must wait &c%seconds%s&7 before requesting revive again.")
+                                .replace("%seconds%", String.valueOf(left)));
+                        return true;
+                    }
+                }
+
+                int current = hearts.getHearts(p.getUniqueId());
+                int min = cfg.minHearts();
+                if (current > min) {
+                    p.sendMessage(pref + ChatColor.GRAY + "You are not out of hearts.");
+                    return true;
+                }
+
+                // Broadcast to helpers (permission or token holders)
+                String msg = pref + ChatColor.GRAY + p.getName() + " needs a revive. Use a Revive Token to help them.";
+                for (Player online : Bukkit.getOnlinePlayers()) {
+                    boolean canRevive = online.hasPermission("minesteal.revive.use") || online.hasPermission("minesteal.hearts.admin");
+                    boolean hasToken = false;
+                    try {
+                        for (org.bukkit.inventory.ItemStack it : online.getInventory().getContents()) {
+                            if (it != null && ReviveTokenUtil.isToken(cfg, it)) { hasToken = true; break; }
+                        }
+                    } catch (Throwable ignored) {}
+
+                    if (canRevive) online.sendMessage(msg);
+                    if (hasToken) online.sendMessage(pref + ChatColor.GREEN + "Tip: Right-click the spectator or use /revive " + p.getName());
+                }
+
+                p.sendMessage(pref + ChatColor.GRAY + "Revive request sent.");
+                plugin.cooldowns().markRequestRevive(p.getUniqueId());
+                return true;
+            }
             case "withdraw": {
-                if (!has(sender, "minesteal.use")) return deny(sender);
+                if (!has(sender, "minesteal.hearts")) return deny(sender);
                 if (!(sender instanceof Player)) {
                     sender.sendMessage(pref + "Only players can withdraw heart items.");
                     return true;
@@ -107,8 +149,18 @@ public class HeartsCommand implements CommandExecutor, TabCompleter {
 
                 // ensure we won't go below the minimum hearts
                 if (current - amt < min) {
-                    p.sendMessage(pref + ChatColor.RED + "You can’t withdraw that many. Minimum hearts: " + min + ".");
+                    p.sendMessage(pref + ChatColor.RED + "You can't withdraw that many. Minimum hearts: " + min + ".");
                     return true;
+                }
+
+                // withdraw cooldown (admins bypass)
+                if (!p.hasPermission("minesteal.hearts.admin")) {
+                    long left = plugin.cooldowns().leftWithdraw(id);
+                    if (left > 0) {
+                        p.sendMessage(pref + cfg.msg("cooldown_withdraw", "&7You must wait &c%seconds%s&7 before withdrawing again.")
+                                .replace("%seconds%", String.valueOf(left)));
+                        return true;
+                    }
                 }
 
                 // read config: withdraw as shards or heart items?
@@ -117,29 +169,38 @@ public class HeartsCommand implements CommandExecutor, TabCompleter {
 
                 // deduct hearts first
                 int after = hearts.addHearts(id, -amt); // clamps internally
-                if (p.isOnline()) hearts.syncOnline(p);
+                hearts.syncOnline(p);
 
                 // give items
                 if (asShards) {
                     int totalShards = amt * shardsPerHeart;
-                    p.getInventory().addItem(me.ycxmbo.minesteal.hearts.HeartItemUtil.createShardItem(cfg, totalShards));
+                    var inv = p.getInventory();
+                    var left = inv.addItem(me.ycxmbo.minesteal.hearts.HeartItemUtil.createShardItem(cfg, totalShards));
+                    if (!left.isEmpty()) {
+                        left.values().forEach(item -> p.getWorld().dropItemNaturally(p.getLocation(), item));
+                    }
                     p.sendMessage(pref + ChatColor.GRAY + "Withdrew " + ChatColor.RED + amt + ChatColor.GRAY +
                             " heart(s) as " + ChatColor.RED + totalShards + ChatColor.GRAY + " shard(s). " +
                             ChatColor.DARK_GRAY + "(Now at " + after + " hearts)");
                 } else {
-                    p.getInventory().addItem(me.ycxmbo.minesteal.hearts.HeartItemUtil.createHeartItem(cfg, amt));
+                    var inv = p.getInventory();
+                    var left = inv.addItem(me.ycxmbo.minesteal.hearts.HeartItemUtil.createHeartItem(cfg, amt));
+                    if (!left.isEmpty()) {
+                        left.values().forEach(item -> p.getWorld().dropItemNaturally(p.getLocation(), item));
+                    }
                     p.sendMessage(pref + ChatColor.GRAY + "Withdrew " + ChatColor.RED + amt + ChatColor.GRAY +
                             " heart item(s). " + ChatColor.DARK_GRAY + "(Now at " + after + " hearts)");
                 }
 
-                // refresh holograms/leaderboard visuals
+                // start cooldown and refresh holograms/leaderboard visuals
+                plugin.cooldowns().markWithdraw(id);
                 me.ycxmbo.minesteal.util.DHRefresher.refreshAll(plugin, cfg, leaderboard);
                 return true;
             }
             case "add":
             case "remove":
             case "set": {
-                if (!has(sender, "minesteal.admin")) return deny(sender);
+                if (!has(sender, "minesteal.hearts.admin")) return deny(sender);
                 if (args.length < 3) { sender.sendMessage(pref + "Usage: /hearts " + args[0] + " <player> <amount>"); return true; }
                 OfflinePlayer target = Bukkit.getOfflinePlayer(args[1]);
                 if (target == null || target.getUniqueId() == null) { sender.sendMessage(pref + "Player not found."); return true; }
@@ -158,13 +219,15 @@ public class HeartsCommand implements CommandExecutor, TabCompleter {
             }
 
             case "revive": {
-                if (!has(sender, "minesteal.admin")) return deny(sender);
+                if (!has(sender, "minesteal.hearts.admin")) return deny(sender);
                 if (args.length < 2) { sender.sendMessage(pref + "Usage: /hearts revive <player>"); return true; }
                 OfflinePlayer t = Bukkit.getOfflinePlayer(args[1]);
                 if (t == null || t.getUniqueId() == null) { sender.sendMessage(pref + "Player not found."); return true; }
                 UUID id = t.getUniqueId();
                 if (hearts.getHearts(id) < cfg.minHearts()) hearts.setHearts(id, cfg.minHearts());
-                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "unban " + id);
+                String cmdLine = cfg.cfg().getString("revive_token.unban_command", "litebans:unban %player%");
+                String toRun = cmdLine.replace("%player%", (t.getName() != null ? t.getName() : id.toString()));
+                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), toRun);
                 if (t.isOnline()) {
                     t.getPlayer().setGameMode(GameMode.SURVIVAL);
                     hearts.syncOnline(t.getPlayer());
@@ -211,7 +274,7 @@ public class HeartsCommand implements CommandExecutor, TabCompleter {
             }
 
             case "holo": {
-                if (!has(sender, "minesteal.admin")) return deny(sender);
+                if (!has(sender, "minesteal.hearts.admin")) return deny(sender);
                 if (!(sender instanceof Player)) { sender.sendMessage(pref + "Only players."); return true; }
                 if (Bukkit.getPluginManager().getPlugin("DecentHolograms") == null) {
                     sender.sendMessage(pref + ChatColor.RED + "DecentHolograms not found.");
@@ -269,7 +332,7 @@ public class HeartsCommand implements CommandExecutor, TabCompleter {
             }
 
             case "reload": {
-                if (!has(sender, "minesteal.admin")) return deny(sender);
+                if (!has(sender, "minesteal.hearts.admin")) return deny(sender);
                 plugin.config().reload();
                 crafting.registerRecipes();
                 plugin.leaderboard().refreshSnapshotAsync();
@@ -291,23 +354,23 @@ public class HeartsCommand implements CommandExecutor, TabCompleter {
     public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
         List<String> out = new ArrayList<>();
         if (args.length == 1) {
-            out.add("check"); out.add("gui"); if (has(sender,"minesteal.use")) out.add("withdraw");
-            if (has(sender,"minesteal.admin")) { out.add("add"); out.add("remove"); out.add("set"); out.add("revive"); out.add("reload"); out.add("holo"); }
+            out.add("check"); out.add("gui"); if (has(sender,"minesteal.hearts")) { out.add("withdraw"); out.add("request_revive"); }
+            if (has(sender,"minesteal.hearts.admin")) { out.add("add"); out.add("remove"); out.add("set"); out.add("revive"); out.add("reload"); out.add("holo"); }
             out.add("top");
         } else if (args.length == 2) {
             switch (args[0].toLowerCase(Locale.ROOT)) {
                 case "add": case "remove": case "set": case "revive": case "gui":
-                    if (has(sender,"minesteal.admin")) for (Player p : Bukkit.getOnlinePlayers()) out.add(p.getName()); break;
+                    if (has(sender,"minesteal.hearts.admin")) for (Player p : Bukkit.getOnlinePlayers()) out.add(p.getName()); break;
                 case "top": out.add("1"); out.add("2"); out.add("3"); break;
-                case "holo": if (has(sender,"minesteal.admin")) { out.add("create"); out.add("remove"); out.add("list"); out.add("refresh"); } break;
+                case "holo": if (has(sender,"minesteal.hearts.admin")) { out.add("create"); out.add("remove"); out.add("list"); out.add("refresh"); } break;
             }
         } else if (args.length == 3) {
-            if (args[0].equalsIgnoreCase("holo") && has(sender,"minesteal.admin")) {
+            if (args[0].equalsIgnoreCase("holo") && has(sender,"minesteal.hearts.admin")) {
                 if ("create".equalsIgnoreCase(args[1])) out.add("id");
             } else if (args[0].equalsIgnoreCase("top")) { out.add("1"); out.add("2"); out.add("3"); }
-        } else if (args.length == 4 && args[0].equalsIgnoreCase("holo") && "create".equalsIgnoreCase(args[1]) && has(sender,"minesteal.admin")) {
+        } else if (args.length == 4 && args[0].equalsIgnoreCase("holo") && "create".equalsIgnoreCase(args[1]) && has(sender,"minesteal.hearts.admin")) {
             out.add(String.valueOf(cfg.cfg().getInt("holograms.default_size", 10)));
-        } else if (args.length == 5 && args[0].equalsIgnoreCase("holo") && "create".equalsIgnoreCase(args[1]) && has(sender,"minesteal.admin")) {
+        } else if (args.length == 5 && args[0].equalsIgnoreCase("holo") && "create".equalsIgnoreCase(args[1]) && has(sender,"minesteal.hearts.admin")) {
             out.add(String.valueOf(cfg.cfg().getInt("holograms.default_page", 1)));
         }
         return out;

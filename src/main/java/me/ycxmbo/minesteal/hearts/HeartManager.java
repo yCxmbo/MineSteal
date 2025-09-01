@@ -26,6 +26,7 @@ public class HeartManager {
 
     private final JavaPlugin plugin;
     private final Map<UUID, Integer> hearts = new ConcurrentHashMap<>();
+    private final Map<UUID, String> names = new ConcurrentHashMap<>();
     private final ExecutorService io = Executors.newSingleThreadExecutor(r -> {
         Thread t = new Thread(r, "MineSteal-IO");
         t.setDaemon(true);
@@ -154,6 +155,8 @@ public class HeartManager {
                 UUID id = UUID.fromString(key);
                 int h = y.getInt("players." + key + ".hearts", Math.max(10, minHearts()));
                 hearts.put(id, h);
+                String n = y.getString("players." + key + ".name", null);
+                if (n != null && !n.isEmpty()) names.put(id, n);
             } catch (IllegalArgumentException ignored) { }
         }
     }
@@ -168,7 +171,10 @@ public class HeartManager {
             if (!f.getParentFile().exists()) f.getParentFile().mkdirs();
             YamlConfiguration y = new YamlConfiguration();
             for (Map.Entry<UUID, Integer> e : hearts.entrySet()) {
-                y.set("players." + e.getKey() + ".hearts", e.getValue());
+                UUID id = e.getKey();
+                y.set("players." + id + ".hearts", e.getValue());
+                String name = names.get(id);
+                if (name != null && !name.isEmpty()) y.set("players." + id + ".name", name);
             }
             y.save(f);
         } catch (IOException ex) {
@@ -229,5 +235,27 @@ public class HeartManager {
         if (inst != null) inst.setBaseValue(maxHp);
 
         if (p.getHealth() > maxHp) p.setHealth(maxHp);
+        // Track last known name
+        try { if (p.getName() != null) names.put(uuid, p.getName()); } catch (Throwable ignored) {}
+    }
+
+    /** Optional: get last-known stored name (may be null). */
+    public String getStoredName(UUID id) { return names.get(id); }
+
+    /** Snapshot of stored names from disk (blocking). */
+    public Map<UUID, String> snapshotNamesFromDisk() {
+        Map<UUID, String> out = new HashMap<>();
+        File f = playersFile();
+        if (!f.exists()) return out;
+        YamlConfiguration y = YamlConfiguration.loadConfiguration(f);
+        if (!y.isConfigurationSection("players")) return out;
+        for (String key : Objects.requireNonNull(y.getConfigurationSection("players")).getKeys(false)) {
+            try {
+                UUID id = UUID.fromString(key);
+                String n = y.getString("players." + key + ".name", null);
+                if (n != null && !n.isEmpty()) out.put(id, n);
+            } catch (IllegalArgumentException ignored) {}
+        }
+        return out;
     }
 }

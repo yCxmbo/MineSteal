@@ -5,6 +5,7 @@ import me.ycxmbo.minesteal.config.ConfigManager;
 import me.ycxmbo.minesteal.hearts.HeartItemUtil;
 import me.ycxmbo.minesteal.hearts.HeartManager;
 import me.ycxmbo.minesteal.util.DHRefresher;
+import me.ycxmbo.minesteal.util.CooldownManager;
 import me.ycxmbo.minesteal.util.LeaderboardManager;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
@@ -109,9 +110,20 @@ public final class HeartsGUI {
             int amount,
             HeartManager hearts,
             ConfigManager cfg,
-            LeaderboardManager leaderboard
+            LeaderboardManager leaderboard,
+            CooldownManager cooldowns
     ) {
         final String pref = cfg.prefix();
+
+        // Enforce withdraw cooldown (admins bypass)
+        if (!p.hasPermission("minesteal.hearts.admin")) {
+            long left = cooldowns.leftWithdraw(p.getUniqueId());
+            if (left > 0) {
+                p.sendMessage(pref + cfg.msg("cooldown_withdraw", "&7You must wait &c%seconds%s&7 before withdrawing again.")
+                        .replace("%seconds%", String.valueOf(left)));
+                return;
+            }
+        }
 
         int current = hearts.getHearts(id);
         int min = cfg.minHearts();
@@ -121,7 +133,7 @@ public final class HeartsGUI {
             return;
         }
         if (current - amount < min) {
-            p.sendMessage(pref + ChatColor.RED + "You can’t withdraw that many. Minimum hearts: " + min + ".");
+            p.sendMessage(pref + ChatColor.RED + "You can't withdraw that many. Minimum hearts: " + min + ".");
             return;
         }
 
@@ -134,17 +146,26 @@ public final class HeartsGUI {
 
         if (asShards) {
             int total = amount * shardsPerHeart;
-            p.getInventory().addItem(HeartItemUtil.createShardItem(cfg, total));
+            var inv = p.getInventory();
+            var left = inv.addItem(HeartItemUtil.createShardItem(cfg, total));
+            if (!left.isEmpty()) {
+                left.values().forEach(item -> p.getWorld().dropItemNaturally(p.getLocation(), item));
+            }
             p.sendMessage(pref + ChatColor.GRAY + "Withdrew " + ChatColor.RED + amount + ChatColor.GRAY +
                     " heart(s) as " + ChatColor.RED + total + ChatColor.GRAY + " shard(s). " +
                     ChatColor.DARK_GRAY + "(Now at " + after + " hearts)");
         } else {
-            p.getInventory().addItem(HeartItemUtil.createHeartItem(cfg, amount));
+            var inv = p.getInventory();
+            var left = inv.addItem(HeartItemUtil.createHeartItem(cfg, amount));
+            if (!left.isEmpty()) {
+                left.values().forEach(item -> p.getWorld().dropItemNaturally(p.getLocation(), item));
+            }
             p.sendMessage(pref + ChatColor.GRAY + "Withdrew " + ChatColor.RED + amount + ChatColor.GRAY +
                     " heart item(s). " + ChatColor.DARK_GRAY + "(Now at " + after + " hearts)");
         }
 
-        // Visual updates
+        // Start cooldown timer and visual updates
+        cooldowns.markWithdraw(p.getUniqueId());
         DHRefresher.refreshAll(MineSteal.get(), cfg, leaderboard);
     }
 }
