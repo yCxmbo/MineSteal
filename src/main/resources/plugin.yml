@@ -1,6 +1,6 @@
 name: MineSteal
 main: me.ycxmbo.minesteal.MineSteal
-version: 1.5.0
+version: 1.1
 api-version: '1.21'
 authors: [ 'yCxmbo' ]
 softdepend: [PlaceholderAPI, DecentHolograms, LiteBans]
