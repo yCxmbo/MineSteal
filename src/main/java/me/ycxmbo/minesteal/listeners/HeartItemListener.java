@@ -14,7 +14,7 @@ import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.particle.Particle;
+import org.bukkit.Particle;
 
 /**
  * Handles right-clicking heart items to consume them for +1 max heart.
