@@ -2,54 +2,132 @@ package me.ycxmbo.minesteal.hearts;
 
 import me.ycxmbo.minesteal.MineSteal;
 import me.ycxmbo.minesteal.config.ConfigManager;
+import me.ycxmbo.minesteal.util.ColorUtil;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
+/**
+ * Factory for heart items, shards and revive tokens.
+ * Uses PersistentDataContainer tags to identify items reliably.
+ */
 public final class HeartItemUtil {
-    private static final NamespacedKey HEART_KEY = new NamespacedKey(MineSteal.get(), "heart");
-    private static final NamespacedKey SHARD_KEY = new NamespacedKey(MineSteal.get(), "heart_shard");
+
+    public static final String HEART_TAG = "minesteal_heart";
+    public static final String SHARD_TAG = "minesteal_shard";
+    public static final String TOKEN_TAG = "minesteal_token";
+
+    private HeartItemUtil() {}
 
     public static ItemStack createHeartItem(ConfigManager cfg, int amount) {
-        ItemStack item = new ItemStack(Material.NETHER_WART, amount);
+        Material mat = parseMaterial(cfg.heartItemMaterial(), Material.NETHER_WART);
+        ItemStack item = new ItemStack(mat, Math.max(1, amount));
         ItemMeta meta = item.getItemMeta();
-        meta.setDisplayName(cfg.heartItemName());
-        List<String> lore = cfg.heartItemLore();
-        if (lore != null && !lore.isEmpty()) meta.setLore(lore);
+
+        String name = cfg.heartItemName();
+        meta.setDisplayName(ColorUtil.colorize(name));
+        meta.setCustomModelData(cfg.heartModelData());
+
+        List<String> lore = cfg.heartItemLore().stream()
+                .map(ColorUtil::colorize)
+                .collect(Collectors.toList());
+        if (!lore.isEmpty()) meta.setLore(lore);
+
         meta.addItemFlags(ItemFlag.values());
-        meta.getPersistentDataContainer().set(HEART_KEY, PersistentDataType.BYTE, (byte)1);
+
+        if (cfg.heartGlow()) {
+            meta.addEnchant(Enchantment.UNBREAKING, 1, true);
+            meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+        }
+
+        NamespacedKey key = new NamespacedKey(MineSteal.get(), HEART_TAG);
+        meta.getPersistentDataContainer().set(key, PersistentDataType.BYTE, (byte) 1);
         item.setItemMeta(meta);
         return item;
     }
 
     public static boolean isHeartItem(ItemStack item) {
-        if (item == null || !item.hasItemMeta()) return false;
-        Byte flag = item.getItemMeta().getPersistentDataContainer().get(HEART_KEY, PersistentDataType.BYTE);
-        return flag != null && flag == (byte)1;
+        return hasTag(item, HEART_TAG);
     }
 
     public static ItemStack createShardItem(ConfigManager cfg, int amount) {
-        ItemStack item = new ItemStack(Material.AMETHYST_SHARD, amount);
+        Material mat = parseMaterial(cfg.shardMaterial(), Material.AMETHYST_SHARD);
+        ItemStack item = new ItemStack(mat, Math.max(1, amount));
         ItemMeta meta = item.getItemMeta();
-        meta.setDisplayName(cfg.shardName());
-        List<String> lore = cfg.shardLore();
-        if (lore != null && !lore.isEmpty()) meta.setLore(lore);
+
+        meta.setDisplayName(ColorUtil.colorize(cfg.shardName()));
+        meta.setCustomModelData(cfg.shardModelData());
+
+        List<String> lore = cfg.shardLore().stream()
+                .map(ColorUtil::colorize)
+                .collect(Collectors.toList());
+        if (!lore.isEmpty()) meta.setLore(lore);
+
         meta.addItemFlags(ItemFlag.values());
-        meta.getPersistentDataContainer().set(SHARD_KEY, PersistentDataType.BYTE, (byte)1);
+
+        if (cfg.shardGlow()) {
+            meta.addEnchant(Enchantment.UNBREAKING, 1, true);
+            meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+        }
+
+        NamespacedKey key = new NamespacedKey(MineSteal.get(), SHARD_TAG);
+        meta.getPersistentDataContainer().set(key, PersistentDataType.BYTE, (byte) 1);
         item.setItemMeta(meta);
         return item;
     }
 
-    public static boolean isShard(ItemStack item) {
-        if (item == null || !item.hasItemMeta()) return false;
-        Byte flag = item.getItemMeta().getPersistentDataContainer().get(SHARD_KEY, PersistentDataType.BYTE);
-        return flag != null && flag == (byte)1;
+    public static boolean isShardItem(ItemStack item) {
+        return hasTag(item, SHARD_TAG);
     }
 
-    private HeartItemUtil() {}
+    public static ItemStack createTokenItem(ConfigManager cfg, int amount) {
+        Material mat = parseMaterial(cfg.reviveTokenMaterial(), Material.NETHER_STAR);
+        ItemStack item = new ItemStack(mat, Math.max(1, amount));
+        ItemMeta meta = item.getItemMeta();
+
+        meta.setDisplayName(ColorUtil.colorize(cfg.reviveTokenName()));
+        meta.setCustomModelData(cfg.tokenModelData());
+
+        List<String> lore = cfg.reviveTokenLore().stream()
+                .map(ColorUtil::colorize)
+                .collect(Collectors.toList());
+        if (!lore.isEmpty()) meta.setLore(lore);
+
+        meta.addItemFlags(ItemFlag.values());
+
+        if (cfg.tokenGlow()) {
+            meta.addEnchant(Enchantment.UNBREAKING, 1, true);
+            meta.addItemFlags(ItemFlag.HIDE_ENCHANTS);
+        }
+
+        NamespacedKey key = new NamespacedKey(MineSteal.get(), TOKEN_TAG);
+        meta.getPersistentDataContainer().set(key, PersistentDataType.BYTE, (byte) 1);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    public static boolean isTokenItem(ItemStack item) {
+        return hasTag(item, TOKEN_TAG);
+    }
+
+    private static boolean hasTag(ItemStack item, String tagName) {
+        if (item == null || !item.hasItemMeta()) return false;
+        NamespacedKey key = new NamespacedKey(MineSteal.get(), tagName);
+        return item.getItemMeta().getPersistentDataContainer()
+                .has(key, PersistentDataType.BYTE);
+    }
+
+    private static Material parseMaterial(String name, Material fallback) {
+        if (name == null) return fallback;
+        Material m = Material.matchMaterial(name);
+        return m != null ? m : fallback;
+    }
 }

@@ -1,50 +1,119 @@
 name: MineSteal
 main: me.ycxmbo.minesteal.MineSteal
-version: 1.1
+version: ${project.version}
 api-version: '1.21'
 authors: [ 'yCxmbo' ]
-softdepend: [PlaceholderAPI, DecentHolograms, LiteBans]
+description: 'Professional Lifesteal SMP plugin with heart stealing, bounties, stats and more.'
+website: 'https://github.com/ycxmbo/minesteal'
+softdepend: [ PlaceholderAPI, DecentHolograms, Vault ]
 
 commands:
+  minesteal:
+    description: 'Main MineSteal command hub.'
+    usage: '/<command> <subcommand> [args]'
+    aliases: [ ms, lifesteal, ls ]
+
+  # Legacy aliases kept for backwards compatibility
   hearts:
-    description: View or manage hearts.
-    usage: /<command> [check|gui|withdraw|request_revive|add|remove|set|revive|top|reload|holo]
-    aliases: [ls, lifesteal]
-    permission: minesteal.hearts
+    description: 'View your hearts (alias for /minesteal hearts).'
+    usage: '/<command>'
+    aliases: [ heart ]
   revive:
-    description: Revive a deathbanned player (uses a Revive Token in hand if required).
-    usage: /<command> <player>
-    permission: minesteal.revive.use
+    description: 'Revive a deathbanned player (alias).'
+    usage: '/<command> <player>'
   msgive:
-    description: Give heart/shard/token items (for crates/admin).
-    usage: /<command> <heart|shard|token> <player> [amount]
-    permission: minesteal.admin.give
+    description: 'Give MineSteal items (admin).'
+    usage: '/<command> <heart|shard|token> <player> [amount]'
+    permission: minesteal.admin
 
 permissions:
+  minesteal.admin:
+    description: 'Full administrative access.'
+    default: op
+    children:
+      minesteal.hearts.admin: true
+      minesteal.revive.admin: true
+      minesteal.sethearts: true
+      minesteal.addhearts: true
+      minesteal.removehearts: true
+      minesteal.reload: true
+      minesteal.admin.give: true
+      minesteal.bypassban: true
+      minesteal.combatlog.admin: true
+      minesteal.bounty.admin: true
+
+  minesteal.use:
+    description: 'Basic plugin access.'
+    default: true
+
   minesteal.hearts:
-    description: Allows using /hearts (player features).
+    description: 'View own hearts.'
     default: true
-  minesteal.revive.use:
-    description: Allows using /revive (token required unless config allows otherwise).
+
+  minesteal.withdraw:
+    description: 'Withdraw hearts into items.'
     default: true
-  minesteal.hearts.admin:
-    description: Allows /hearts admin subcommands (give/set/remove/reload).
-    default: op
+
+  minesteal.deposit:
+    description: 'Deposit heart items.'
+    default: true
+
+  minesteal.give:
+    description: 'Transfer hearts to another player.'
+    default: true
+
+  minesteal.revive:
+    description: 'Use a revive token to revive another player.'
+    default: true
+
   minesteal.revive.admin:
-    description: Allows using /revive without consuming a token (if you implement that override).
+    description: 'Revive without consuming a token.'
     default: op
+
+  minesteal.bounty:
+    description: 'Place bounties on players.'
+    default: true
+
+  minesteal.bounty.admin:
+    description: 'Admin bounty management.'
+    default: op
+
+  minesteal.stats:
+    description: 'View stats leaderboard.'
+    default: true
+
+  minesteal.reload:
+    description: 'Reload plugin configuration.'
+    default: op
+
+  minesteal.bypassban:
+    description: 'Bypass deathban restrictions.'
+    default: op
+
+  minesteal.sethearts:
+    description: 'Set a player heart count.'
+    default: op
+
+  minesteal.addhearts:
+    description: 'Add hearts to a player.'
+    default: op
+
+  minesteal.removehearts:
+    description: 'Remove hearts from a player.'
+    default: op
+
+  minesteal.hearts.admin:
+    description: 'Admin heart management.'
+    default: op
+
   minesteal.admin.give:
-    description: Allows /msgive to spawn items (used by crates via console).
+    description: 'Spawn heart/shard/token items.'
     default: op
-  minesteal.crates.reward:
-    description: Base permission for MineSteal crate rewards.
-    default: true
-  minesteal.crates.reward.heart:
-    description: Receive Heart items from crates.
-    default: true
-  minesteal.crates.reward.shard:
-    description: Receive Heart Shards from crates.
-    default: true
-  minesteal.crates.reward.token:
-    description: Receive Revive Tokens from crates.
+
+  minesteal.combatlog.admin:
+    description: 'View and manage combat logs.'
+    default: op
+
+  minesteal.killtop:
+    description: 'View kill leaderboard.'
     default: true

@@ -2,121 +2,55 @@ package me.ycxmbo.minesteal.listeners;
 
 import me.ycxmbo.minesteal.MineSteal;
 import me.ycxmbo.minesteal.config.ConfigManager;
-import me.ycxmbo.minesteal.gui.HeartsGUI;
-import me.ycxmbo.minesteal.hearts.HeartManager;
-import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
-import org.bukkit.NamespacedKey;
-import org.bukkit.entity.HumanEntity;
+import me.ycxmbo.minesteal.util.CooldownManager;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.persistence.PersistentDataContainer;
-import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.event.inventory.InventoryDragEvent;
 
-import java.util.Map;
-import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-
+/**
+ * Cancels all clicks in MineSteal GUIs to prevent item theft.
+ */
 public class GUIListener implements Listener {
 
     private final MineSteal plugin;
-    private final HeartManager hearts;
-    private final ConfigManager cfg;
+    private final ConfigManager config;
+    private final CooldownManager cooldowns;
 
-    // Per-player lightweight GUI click cooldown (ms)
-    private final Map<UUID, Long> guiCooldowns = new ConcurrentHashMap<>();
-
-    // When admins open GUI for a different target, we store that UUID here
-    private static final NamespacedKey KEY_VIEW_TARGET = new NamespacedKey(MineSteal.get(), "view_target");
-
-    public GUIListener(MineSteal plugin, HeartManager hearts, ConfigManager cfg) {
+    public GUIListener(MineSteal plugin) {
         this.plugin = plugin;
-        this.hearts = hearts;
-        this.cfg = cfg;
+        this.config = plugin.getConfigManager();
+        this.cooldowns = plugin.getCooldownManager();
     }
 
-    /** Called by /hearts gui <player> to remember the target being viewed. */
-    public static void setTargetMeta(Player viewer, UUID target) {
-        PersistentDataContainer pdc = viewer.getPersistentDataContainer();
-        pdc.set(KEY_VIEW_TARGET, PersistentDataType.STRING, target.toString());
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player p)) return;
+        String title = event.getView().getTitle();
+        if (!isMineStealGUI(title)) return;
+        event.setCancelled(true);
+
+        // Anti-spam for GUI clicks
+        if (cooldowns.isOnCooldown(CooldownManager.GUI_CLICK, p.getUniqueId())) return;
+        cooldowns.setCooldownMs(CooldownManager.GUI_CLICK, p.getUniqueId(), config.guiClickMs());
     }
 
-    /** Resolve which target the viewer is looking at (defaults to self). */
-    private UUID resolveTarget(Player viewer) {
-        try {
-            PersistentDataContainer pdc = viewer.getPersistentDataContainer();
-            String s = pdc.get(KEY_VIEW_TARGET, PersistentDataType.STRING);
-            if (s != null) return UUID.fromString(s);
-        } catch (Throwable ignore) {}
-        return viewer.getUniqueId();
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onDrag(InventoryDragEvent event) {
+        if (!(event.getWhoClicked() instanceof Player)) return;
+        if (isMineStealGUI(event.getView().getTitle())) event.setCancelled(true);
     }
 
-    private boolean isGuiClickOnCooldown(UUID id) {
-        int cdMs = Math.max(0, cfg.cfg().getInt("cooldowns.gui_click_ms", 150));
-        long now = System.currentTimeMillis();
-        Long last = guiCooldowns.get(id);
-        if (last != null && (now - last) < cdMs) return true;
-        guiCooldowns.put(id, now);
-        return false;
-    }
-
-    @EventHandler(ignoreCancelled = true)
-    public void onInventoryClick(InventoryClickEvent e) {
-        HumanEntity he = e.getWhoClicked();
-        if (!(he instanceof Player)) return;
-        Player p = (Player) he;
-
-        ItemStack clicked = e.getCurrentItem();
-        if (clicked == null || !clicked.hasItemMeta()) return;
-
-        // Check GUI tag
-        PersistentDataContainer pdc = clicked.getItemMeta().getPersistentDataContainer();
-        if (!pdc.has(HeartsGUI.KEY_GUI, PersistentDataType.STRING)) return;
-        String guiTag = pdc.get(HeartsGUI.KEY_GUI, PersistentDataType.STRING);
-        if (guiTag == null || !guiTag.equalsIgnoreCase("hearts")) return;
-
-        e.setCancelled(true);
-
-        // Simple built-in cooldown to avoid spam-clicking
-        if (isGuiClickOnCooldown(p.getUniqueId())) {
-            p.sendMessage(cfg.prefix() + ChatColor.GRAY + "Please wait a moment...");
-            return;
-        }
-
-        String action = pdc.get(HeartsGUI.KEY_ACTION, PersistentDataType.STRING);
-        if (action == null) action = "";
-
-        UUID target = resolveTarget(p);
-
-        switch (action.toLowerCase()) {
-            case "withdraw": {
-                // amount via PDC; fallback to 1
-                Integer amt = pdc.get(HeartsGUI.KEY_AMOUNT, PersistentDataType.INTEGER);
-                int amount = (amt != null && amt > 0) ? amt : 1;
-
-                // perform the actual withdraw logic
-                HeartsGUI.performWithdraw(
-                        p, target, amount,
-                        hearts, cfg, plugin.leaderboard(), plugin.cooldowns()
-                );
-
-                // Re-open to reflect new heart count (next tick)
-                Bukkit.getScheduler().runTask(plugin, () ->
-                        HeartsGUI.open(p, target, hearts, cfg)
-                );
-                break;
-            }
-            case "close": {
-                p.closeInventory();
-                break;
-            }
-            default: {
-                // future buttons can be handled here
-                break;
-            }
-        }
+    private boolean isMineStealGUI(String title) {
+        return title != null && (
+                title.contains("❤") ||
+                title.contains("Hearts") ||
+                title.contains("Admin Panel") ||
+                title.contains("Bounty Board") ||
+                title.contains("Statistics") ||
+                title.contains("MineSteal")
+        );
     }
 }

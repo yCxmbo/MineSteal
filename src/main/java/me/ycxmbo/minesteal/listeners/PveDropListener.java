@@ -3,77 +3,56 @@ package me.ycxmbo.minesteal.listeners;
 import me.ycxmbo.minesteal.MineSteal;
 import me.ycxmbo.minesteal.config.ConfigManager;
 import me.ycxmbo.minesteal.hearts.HeartItemUtil;
-import me.ycxmbo.minesteal.items.ReviveTokenUtil;
-import org.bukkit.ChatColor;
 import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.entity.EntityType;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDeathEvent;
-import org.bukkit.inventory.ItemStack;
 
 import java.util.Random;
 
+/**
+ * Drops heart shards or revive tokens from configured PvE mobs on player kill.
+ */
 public class PveDropListener implements Listener {
 
     private final MineSteal plugin;
-    private final ConfigManager cfg;
-    private final Random rng = new Random();
+    private final ConfigManager config;
+    private final Random random = new Random();
 
-    public PveDropListener(MineSteal plugin, ConfigManager cfg) {
+    public PveDropListener(MineSteal plugin) {
         this.plugin = plugin;
-        this.cfg = cfg;
+        this.config = plugin.getConfigManager();
     }
 
-    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
-    public void onEntityDeath(EntityDeathEvent e) {
-        if (!(e.getEntity() instanceof LivingEntity ent)) return;
-        EntityType type = ent.getType();
+    @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
+    public void onEntityDeath(EntityDeathEvent event) {
+        if (!config.pveDropsEnabled()) return;
+        LivingEntity entity = event.getEntity();
+        if (entity.getKiller() == null) return;
 
-        // --- Shard drops ---
-        if (cfg.pveEnabled()) {
-            ConfigurationSection sec = cfg.pveEntitiesSection();
-            if (sec != null) {
-                ConfigurationSection mob = sec.getConfigurationSection(type.name());
-                if (mob != null) {
-                    double chance = mob.getDouble("chance", 0.0);
-                    int min = Math.max(0, mob.getInt("min", 1));
-                    int max = Math.max(min, mob.getInt("max", min));
-                    if (roll(chance) && cfg.shardEnabled() && max > 0) {
-                        int amt = (min == max) ? min : (min + rng.nextInt(max - min + 1));
-                        ItemStack shards = HeartItemUtil.createShardItem(cfg, amt);
-                        ent.getWorld().dropItemNaturally(ent.getLocation(), shards);
-                    }
-                }
-            }
+        ConfigurationSection sec = config.pveSection();
+        if (sec == null) return;
+
+        String typeName = entity.getType().name();
+        if (!sec.contains(typeName)) return;
+
+        ConfigurationSection entry = sec.getConfigurationSection(typeName);
+        if (entry == null) return;
+
+        double chance = entry.getDouble("chance", 0.0);
+        if (random.nextDouble() > chance) return;
+
+        int min = entry.getInt("min", 1);
+        int max = entry.getInt("max", 1);
+        int amount = min + (max > min ? random.nextInt(max - min + 1) : 0);
+        String itemType = entry.getString("item", "SHARD").toUpperCase();
+
+        if ("TOKEN".equals(itemType)) {
+            event.getDrops().add(HeartItemUtil.createTokenItem(config, amount));
+        } else {
+            event.getDrops().add(HeartItemUtil.createShardItem(config, amount));
         }
-
-        // --- Revive Token drops ---
-        if (cfg.cfg().getBoolean("revive_token.drops.enabled", false) &&
-                cfg.cfg().getBoolean("revive_token.enabled", false)) {
-
-            ConfigurationSection sec = cfg.cfg().getConfigurationSection("revive_token.drops.entities");
-            if (sec != null) {
-                ConfigurationSection mob = sec.getConfigurationSection(type.name());
-                if (mob != null) {
-                    double chance = mob.getDouble("chance", 0.0);
-                    int min = Math.max(0, mob.getInt("min", 1));
-                    int max = Math.max(min, mob.getInt("max", min));
-                    if (roll(chance) && max > 0) {
-                        int amt = (min == max) ? min : (min + rng.nextInt(max - min + 1));
-                        ItemStack token = ReviveTokenUtil.createToken(cfg, amt);
-                        ent.getWorld().dropItemNaturally(ent.getLocation(), token);
-                    }
-                }
-            }
-        }
-    }
-
-    private boolean roll(double chance) {
-        if (chance <= 0) return false;
-        if (chance >= 1) return true;
-        return rng.nextDouble() < chance;
     }
 }
