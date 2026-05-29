@@ -1,86 +1,70 @@
 package me.ycxmbo.minesteal.util;
 
-import eu.decentsoftware.holograms.api.DHAPI;
-import eu.decentsoftware.holograms.api.DecentHologramsAPI;
-import eu.decentsoftware.holograms.api.holograms.Hologram;
 import me.ycxmbo.minesteal.MineSteal;
 import me.ycxmbo.minesteal.config.ConfigManager;
+import me.ycxmbo.minesteal.database.PlayerData;
 
-import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
-
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
-import java.util.Locale;
+import java.util.logging.Level;
 
+/**
+ * Refreshes DecentHolograms leaderboard holograms with live heart data.
+ * Uses reflection to avoid a hard compile-time dependency.
+ */
 public final class DHRefresher {
 
     private DHRefresher() {}
 
-    public static void refreshAll(MineSteal plugin, ConfigManager cfg, LeaderboardManager leaderboard) {
-        if (Bukkit.getPluginManager().getPlugin("DecentHolograms") == null) return;
-        if (!cfg.cfg().getBoolean("holograms.enabled", true)) return;
-
-        final String prefix = cfg.cfg().getString("holograms.id_prefix", "ms_top").toLowerCase(Locale.ROOT);
-
+    public static void refreshAll(MineSteal plugin, ConfigManager config, LeaderboardManager lb) {
+        if (!config.hologramsEnabled()) return;
         try {
-            Collection<Hologram> holograms = DecentHologramsAPI.get().getHologramManager().getHolograms();
-            for (Hologram h : holograms) {
-                String id = h.getId();
-                if (id == null || !id.toLowerCase(Locale.ROOT).startsWith(prefix)) continue;
-
-                Decoded meta = decodeId(id,
-                        cfg.cfg().getInt("holograms.default_size", 10),
-                        cfg.cfg().getInt("holograms.default_page", 1));
-
-                List<LeaderboardManager.Entry> all = leaderboard.getSnapshot();
-                if (all.isEmpty()) all = leaderboard.computeLeaderboard(null);
-
-                int size = Math.max(1, meta.size);
-                int from = Math.max(0, (meta.page - 1) * size);
-                int to = Math.min(all.size(), from + size);
-
-                List<String> lines = new ArrayList<>();
-                String header = cfg.cfg().getString("holograms.header", "&cTop Hearts &7(Page %page%)")
-                        .replace("%page%", String.valueOf(meta.page));
-                lines.add(color(header));
-
-                if (from >= to) {
-                    lines.add(color("&7No entries."));
-                } else {
-                    for (int i = from; i < to; i++) {
-                        var e = all.get(i);
-                        String fmt = cfg.cfg().getString("holograms.entry", "&c#%rank% &7%name%: &c%hearts%");
-                        String line = fmt
-                                .replace("%rank%", String.valueOf(i + 1))
-                                .replace("%name%", e.name != null ? e.name : e.uuid.toString().substring(0, 8))
-                                .replace("%hearts%", String.valueOf(e.hearts));
-                        lines.add(color(line));
-                    }
-                }
-
-                // Update lines via DHAPI utility
-                DHAPI.setHologramLines(h, lines);
-            }
-        } catch (Throwable t) {
-            plugin.getLogger().warning("DH refresher failed: " + t.getMessage());
+            Class.forName("eu.decentsoftware.holograms.api.DHAPI");
+            doRefresh(plugin, config, lb);
+        } catch (ClassNotFoundException ignored) {
+        } catch (Exception e) {
+            plugin.getLogger().log(Level.WARNING, "[DHRefresher] " + e.getMessage());
         }
     }
 
-    private static class Decoded { final int size, page; Decoded(int s, int p){ size=s; page=p; } }
+    private static void doRefresh(MineSteal plugin, ConfigManager config, LeaderboardManager lb)
+            throws Exception {
+        Class<?> dhapi = Class.forName("eu.decentsoftware.holograms.api.DHAPI");
+        Class<?> holoClass = Class.forName("eu.decentsoftware.holograms.api.holograms.Hologram");
 
-    private static Decoded decodeId(String id, int defSize, int defPage) {
-        try {
-            String[] parts = id.split(":");
-            if (parts.length >= 3) {
-                int size = Integer.parseInt(parts[parts.length - 2]);
-                int page = Integer.parseInt(parts[parts.length - 1]);
-                return new Decoded(Math.max(1, size), Math.max(1, page));
+        java.lang.reflect.Method getAll = dhapi.getMethod("getHolograms");
+        java.lang.reflect.Method getId  = holoClass.getMethod("getName");
+        java.lang.reflect.Method setLine = dhapi.getMethod("setHologramLine", holoClass, int.class, String.class);
+
+        String prefix = config.hologramIdPrefix();
+        int size = config.hologramDefaultSize();
+        List<PlayerData> top = lb.topByHearts(size * 5);
+
+        Object allHolograms = getAll.invoke(null);
+        if (!(allHolograms instanceof Iterable<?> hList)) return;
+
+        for (Object holo : hList) {
+            String id = (String) getId.invoke(holo);
+            if (id == null || !id.startsWith(prefix)) continue;
+
+            int page = 1;
+            try { page = Integer.parseInt(id.substring(prefix.length()).replaceAll("[^0-9]", "")); }
+            catch (Exception ignored) {}
+
+            int start = (page - 1) * size;
+            List<PlayerData> pageData = top.subList(
+                    Math.min(start, top.size()), Math.min(start + size, top.size()));
+
+            String header = ColorUtil.colorize(config.hologramHeaderFmt().replace("%page%", String.valueOf(page)));
+            setLine.invoke(null, holo, 0, header);
+
+            for (int i = 0; i < pageData.size(); i++) {
+                PlayerData d = pageData.get(i);
+                String line = ColorUtil.colorize(config.hologramEntryFmt()
+                        .replace("%rank%",   String.valueOf(start + i + 1))
+                        .replace("%name%",   d.getName() != null ? d.getName() : "Unknown")
+                        .replace("%hearts%", String.valueOf(d.getHearts())));
+                setLine.invoke(null, holo, i + 1, line);
             }
-        } catch (Exception ignored) {}
-        return new Decoded(Math.max(1, defSize), Math.max(1, defPage));
+        }
     }
-
-    private static String color(String s) { return ChatColor.translateAlternateColorCodes('&', s == null ? "" : s); }
 }

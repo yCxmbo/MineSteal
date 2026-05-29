@@ -1,0 +1,118 @@
+# =============================================
+#   MineSteal Messages
+#   Supports HEX colors: &#RRGGBB
+#   Supports legacy color codes: &a, &c, etc.
+# =============================================
+
+prefix: '&#FF4444[MineSteal]&r '
+
+# General
+no-permission: '&cYou do not have permission to do that.'
+player-only: '&cThis command can only be run by a player.'
+player-not-found: '&cPlayer &f%player% &cnot found or has never played.'
+invalid-number: '&cInvalid number: &f%input%&c.'
+invalid-amount: '&cAmount must be a positive integer.'
+console-run: '&7[Console] Running: &f%command%'
+reloaded: '&aMineSteal configuration reloaded successfully.'
+
+# Hearts
+hearts-self: '&7You have &c%hearts%&7/&c%max% &#FF4444❤&7 hearts.'
+hearts-other: '&f%player% &7has &c%hearts%&7/&c%max% &#FF4444❤&7 hearts.'
+hearts-set: '&7Set &f%player%&7 hearts to &c%new%&7.'
+hearts-added: '&7Added &c%amount% &7heart(s) to &f%player%&7. (&c%new% &7total)'
+hearts-removed: '&7Removed &c%amount% &7heart(s) from &f%player%&7. (&c%new% &7total)'
+at-cap: '&cYou are already at the maximum heart count (&f%max%&c).'
+at-min: '&cYou cannot go below the minimum heart count (&f%min%&c).'
+cannot-consume: '&cYou cannot consume that right now.'
+not-enough-hearts: '&cYou don&at have enough hearts to do that.'
+
+# Withdraw / Deposit
+withdraw-success: '&7Withdrew &c%amount% &7heart(s). Check your inventory!'
+withdraw-cooldown: '&cWait &f%seconds%s &cbefore withdrawing again.'
+deposit-success: '&7Deposited &c%amount% &7heart(s) from your inventory.'
+deposit-none: '&cYou don&at have any heart items to deposit.'
+
+# Give
+give-sender: '&7Transferred &c%amount% &7heart(s) to &f%target%&7.'
+give-receiver: '&f%sender% &7transferred &c%amount% &7heart(s) to you.'
+give-self: '&cYou cannot give hearts to yourself.'
+give-cooldown: '&cWait &f%seconds%s &cbefore giving hearts again.'
+
+# Revive
+revive-success-sender: '&aYou revived &f%player%&a!'
+revive-success-target: '&#00FF88You have been revived by &f%reviver%&a!'
+revive-no-token: '&cYou need a Revive Token to revive a player.'
+revive-not-banned: '&cThat player is not deathbanned.'
+revive-already-alive: '&cThat player is already alive.'
+revive-self: '&cYou cannot revive yourself.'
+revive-announced: '&#00FF88%reviver% &7revived &f%player%&7!'
+
+# Death & Bans
+deathban-message: '&#FF4444You have run out of hearts and have been deathbanned!'
+deathban-spectator: '&#FF4444You are deathbanned. Get a friend to revive you!'
+death-broadcast: '&#FF4444☠ &f%victim% &7was slain by &f%killer% &7and lost &c%hearts% &7heart(s)!'
+death-broadcast-no-killer: '&#FF4444☠ &f%victim% &7died and lost &c%hearts% &7heart(s)!'
+
+# Killstreak
+killstreak-message: '&#FFA500You are on a &f%streak% &7kill streak!'
+killstreak-end: '&7Your kill streak of &c%streak% &7has ended.'
+killstreak-broken: '&#FFA500%player%&7''s &c%streak% &7kill streak was ended by &c%killer%&7!'
+
+# Bounty
+bounty-placed: '&7You placed a &6$%amount% &7bounty on &f%player%&7.'
+bounty-placed-broadcast: '&#FFD700⚑ &f%placer% &7placed a &6$%amount% &7bounty on &f%player%&7!'
+bounty-claimed: '&7You claimed the &6$%amount% &7bounty on &f%player%&7!'
+bounty-claimed-broadcast: '&#FFD700⚑ &f%claimer% &7claimed the &6$%amount% &7bounty on &f%player%&7!'
+bounty-not-found: '&cNo active bounty found for &f%player%&c.'
+bounty-self: '&cYou cannot place a bounty on yourself.'
+bounty-too-low: '&cBounty amount must be at least &6$%min%&c.'
+bounty-too-high: '&cBounty amount cannot exceed &6$%max%&c.'
+bounty-not-enough-money: '&cYou don&at have enough money. You need &6$%amount%&c.'
+bounty-no-economy: '&cEconomy plugin not found. Bounties require Vault + an economy plugin.'
+bounty-header: '&6&l--- Bounty Board ---'
+bounty-entry: '&f%player% &8| &6$%amount% &8| &7placed by &f%placer%'
+bounty-empty: '&7No active bounties.'
+bounty-cooldown: '&cWait &f%seconds%s &cbefore placing another bounty.'
+
+# Combat Log
+combat-tag: '&#FF6600You are now in combat! (%seconds%s)'
+combat-untag: '&7You are no longer in combat.'
+combat-logout-kill: '&#FF4444%player% &7combat-logged and was killed!'
+combat-logout-broadcast: '&#FF4444%player% &7fled from combat and lost their hearts!'
+no-teleport-in-combat: '&cYou cannot teleport while in combat!'
+no-command-in-combat: '&cYou cannot use that command while in combat!'
+
+# PvP Timer
+pvp-timer-active: '&aYou have &f%seconds%s &aof PvP protection remaining.'
+pvp-timer-expired: '&7Your PvP protection has expired. You are now vulnerable!'
+pvp-timer-cancelled-attack: '&7You attacked a player. PvP protection removed!'
+
+# Stats
+stats-header: '&#00CCFF&l--- Stats: %player% ---'
+stats-kills: '&7Kills: &f%kills%'
+stats-deaths: '&7Deaths: &f%deaths%'
+stats-hearts-stolen: '&7Hearts Stolen: &c%stolen%'
+stats-current-streak: '&7Current Streak: &6%streak%'
+stats-best-streak: '&7Best Streak: &6%best%'
+stats-kd: '&7K/D Ratio: &f%kd%'
+stats-no-data: '&7No statistics found for &f%player%&7.'
+
+# Kill Top
+killtop-header: '&#FF4444&l--- Kill Leaderboard (Page %page%) ---'
+killtop-entry: '&c#%rank% &f%player% &8| &7Kills: &f%kills% &8| &7Hearts: &c%hearts%'
+killtop-empty: '&7No kill data found.'
+
+# Admin
+admin-panel-opened: '&7Opening admin panel...'
+admin-debug-on: '&aDebug mode &2enabled&a.'
+admin-debug-off: '&cDebug mode &4disabled&c.'
+admin-rollback-log-header: '&7Recent action log:'
+admin-rollback-entry: '&8[%time%] &f%actor% &7%action% &f%target%'
+
+# Last Stand
+last-stand-trigger: '&#FFD700✦ LAST STAND! &7You narrowly survived!'
+last-stand-cooldown: '&cLast Stand is on cooldown (&f%seconds%s &cremaining).'
+
+# Errors
+error-generic: '&cAn internal error occurred. Please contact an administrator.'
+error-db: '&cDatabase error. Please try again or contact an administrator.'

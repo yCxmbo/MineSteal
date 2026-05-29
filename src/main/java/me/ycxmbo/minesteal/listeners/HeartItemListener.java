@@ -1,67 +1,80 @@
 package me.ycxmbo.minesteal.listeners;
 
+import me.ycxmbo.minesteal.MineSteal;
+import me.ycxmbo.minesteal.api.events.HeartChangeEvent;
 import me.ycxmbo.minesteal.config.ConfigManager;
 import me.ycxmbo.minesteal.hearts.HeartItemUtil;
-import me.ycxmbo.minesteal.hearts.HeartManager;
 import me.ycxmbo.minesteal.util.CooldownManager;
-import org.bukkit.ChatColor;
-import org.bukkit.Material;
+import me.ycxmbo.minesteal.util.SoundUtil;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.particle.Particle;
 
+/**
+ * Handles right-clicking heart items to consume them for +1 max heart.
+ */
 public class HeartItemListener implements Listener {
-    private final HeartManager hearts;
-    private final ConfigManager cfg;
+
+    private final MineSteal plugin;
+    private final ConfigManager config;
     private final CooldownManager cooldowns;
 
-    public HeartItemListener(HeartManager hearts, ConfigManager cfg, CooldownManager cooldowns) {
-        this.hearts = hearts;
-        this.cfg = cfg;
-        this.cooldowns = cooldowns;
+    public HeartItemListener(MineSteal plugin) {
+        this.plugin = plugin;
+        this.config = plugin.getConfigManager();
+        this.cooldowns = plugin.getCooldownManager();
     }
 
-    @EventHandler
-    public void onUse(PlayerInteractEvent e) {
-        if (e.getAction() != Action.RIGHT_CLICK_AIR && e.getAction() != Action.RIGHT_CLICK_BLOCK) return;
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onInteract(PlayerInteractEvent event) {
+        if (event.getHand() != EquipmentSlot.HAND) return;
+        if (event.getAction() != Action.RIGHT_CLICK_AIR
+                && event.getAction() != Action.RIGHT_CLICK_BLOCK) return;
 
-        ItemStack item = e.getItem();
-        if (!HeartItemUtil.isHeartItem(item)) return;
+        Player p = event.getPlayer();
+        ItemStack item = event.getItem();
+        if (item == null) return;
 
-        // Cooldown (admins bypass)
-        if (!e.getPlayer().hasPermission("minesteal.hearts.admin")) {
-            long left = cooldowns.leftConsume(e.getPlayer().getUniqueId());
-            if (left > 0) {
-                e.getPlayer().sendMessage(cfg.prefix() + cfg.msg(
-                        me.ycxmbo.minesteal.config.ConfigKeys.MSG_CD_CONSUME,
-                        "&7You must wait &c%seconds%s&7 before consuming another Heart."
-                ).replace("%seconds%", String.valueOf(left)));
-                return;
-            }
+        if (HeartItemUtil.isHeartItem(item)) {
+            event.setCancelled(true);
+            consumeHeart(p, item);
         }
+    }
 
-        int current = hearts.getHearts(e.getPlayer().getUniqueId());
-        if (current >= cfg.maxHearts() && cfg.refuseIfAtCap()) {
-            e.getPlayer().sendMessage(cfg.prefix() + cfg.msg(
-                    me.ycxmbo.minesteal.config.ConfigKeys.MSG_AT_CAP,
-                    "&7You're already at the heart cap (&c%max%&7)."
-            ).replace("%max%", String.valueOf(cfg.maxHearts())));
+    private void consumeHeart(Player p, ItemStack item) {
+        if (cooldowns.isOnCooldown(CooldownManager.CONSUME, p.getUniqueId())) {
+            long left = cooldowns.remainingSeconds(CooldownManager.CONSUME, p.getUniqueId());
+            p.sendMessage(config.msg("withdraw-cooldown", "%seconds%", String.valueOf(left)));
             return;
         }
 
-        e.setCancelled(true);
-        // consume one
-        item.setAmount(item.getAmount() - 1);
-        if (item.getAmount() <= 0) {
-            e.getPlayer().getInventory().setItemInMainHand(new ItemStack(Material.AIR));
+        int current = plugin.getHeartManager().getHearts(p.getUniqueId());
+        if (config.refuseIfAtCap() && current >= config.maxHearts()) {
+            p.sendMessage(config.msg("at-cap", "%max%", String.valueOf(config.maxHearts())));
+            return;
         }
-        int newVal = hearts.addHearts(e.getPlayer().getUniqueId(), 1);
 
-        // Start cooldown
-        cooldowns.markConsume(e.getPlayer().getUniqueId());
+        if (plugin.getHeartManager().isDeathbanned(p.getUniqueId())) {
+            p.sendMessage(config.msg("cannot-consume"));
+            return;
+        }
 
-        e.getPlayer().sendMessage(cfg.prefix() + ChatColor.GRAY + "You gained a heart. Now at " + ChatColor.RED + newVal + ChatColor.GRAY + ".");
+        int newHearts = plugin.getHeartManager().addHearts(p.getUniqueId(), 1,
+                HeartChangeEvent.Cause.CONSUME_ITEM, p);
+        item.setAmount(item.getAmount() - 1);
+        cooldowns.setCooldown(CooldownManager.CONSUME, p.getUniqueId(), config.cdConsume());
+
+        p.sendMessage(config.msg("hearts-self",
+                "%hearts%", String.valueOf(newHearts),
+                "%max%", String.valueOf(config.maxHearts())));
+
+        SoundUtil.play(p, "ENTITY_PLAYER_LEVELUP", 1.0f, 1.2f);
+        p.getWorld().spawnParticle(Particle.HEART, p.getLocation().add(0, 2, 0), 10, 0.5, 0.5, 0.5, 0.1);
     }
 }

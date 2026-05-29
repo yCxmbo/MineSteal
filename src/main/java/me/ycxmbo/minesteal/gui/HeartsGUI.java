@@ -2,170 +2,103 @@ package me.ycxmbo.minesteal.gui;
 
 import me.ycxmbo.minesteal.MineSteal;
 import me.ycxmbo.minesteal.config.ConfigManager;
-import me.ycxmbo.minesteal.hearts.HeartItemUtil;
-import me.ycxmbo.minesteal.hearts.HeartManager;
-import me.ycxmbo.minesteal.util.DHRefresher;
-import me.ycxmbo.minesteal.util.CooldownManager;
-import me.ycxmbo.minesteal.util.LeaderboardManager;
+import me.ycxmbo.minesteal.database.PlayerData;
+import me.ycxmbo.minesteal.util.ColorUtil;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.persistence.PersistentDataContainer;
-import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.inventory.meta.SkullMeta;
 
-import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
-import java.util.UUID;
 
-public final class HeartsGUI {
+/**
+ * Personal hearts dashboard GUI — shows stats, kill info, and heart status.
+ */
+public class HeartsGUI {
 
-    private HeartsGUI() {}
+    private final MineSteal plugin;
+    private final ConfigManager config;
 
-    // PDC keys (shared with GUIListener)
-    public static final NamespacedKey KEY_GUI      = new NamespacedKey(MineSteal.get(), "ms_gui");
-    public static final NamespacedKey KEY_ACTION   = new NamespacedKey(MineSteal.get(), "ms_action");
-    public static final NamespacedKey KEY_AMOUNT   = new NamespacedKey(MineSteal.get(), "withdraw_amount");
-    public static final NamespacedKey KEY_TARGET   = new NamespacedKey(MineSteal.get(), "target_uuid");
+    public HeartsGUI(MineSteal plugin) {
+        this.plugin = plugin;
+        this.config = plugin.getConfigManager();
+    }
 
-    public static void open(Player viewer, UUID target,
-                            HeartManager hearts, ConfigManager cfg) {
-        int size = 27; // simple 3x9
-        String title = ChatColor.GREEN + "Hearts Menu";
-        Inventory inv = Bukkit.createInventory(viewer, size, title);
+    public void open(Player viewer, Player target) {
+        int size = config.cfg().getInt("gui.hearts.size", 27);
+        String title = ColorUtil.colorize(
+                config.cfg().getString("gui.hearts.title", "&c❤ Your Hearts")
+                        .replace("%player%", target.getName()));
+        Inventory inv = Bukkit.createInventory(null, size, title);
 
-        // Fill background
-        ItemStack bg = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
-        ItemMeta bgm = bg.getItemMeta();
-        bgm.setDisplayName(ChatColor.DARK_GRAY.toString());
-        bg.setItemMeta(bgm);
-        for (int i = 0; i < size; i++) inv.setItem(i, bg);
+        PlayerData data = plugin.getHeartManager().getData(target.getUniqueId());
+        int hearts   = plugin.getHeartManager().getHearts(target.getUniqueId());
+        int maxH     = config.maxHearts();
+        int kills    = data != null ? data.getKills() : 0;
+        int deaths   = data != null ? data.getDeaths() : 0;
+        int streak   = data != null ? data.getCurrentStreak() : 0;
+        int best     = data != null ? data.getBestStreak() : 0;
+        int stolen   = data != null ? data.getHeartsStolen() : 0;
+        boolean banned = data != null && data.isDeathbanned();
 
-        // Info item
-        int current = hearts.getHearts(target);
-        ItemStack info = named(Material.PLAYER_HEAD, ChatColor.LIGHT_PURPLE + "Player",
-                List.of(ChatColor.GRAY + "UUID: " + target.toString().substring(0, 8),
-                        ChatColor.GRAY + "Hearts: " + ChatColor.RED + current + ChatColor.GRAY + "/" + ChatColor.RED + cfg.maxHearts()));
-        tag(info, viewer.getUniqueId(), "info", 0, target);
-        inv.setItem(4, info);
+        // Background filler
+        ItemStack filler = makeFiller(config.cfg().getString("gui.hearts.fill-item", "BLACK_STAINED_GLASS_PANE"));
+        for (int i = 0; i < size; i++) inv.setItem(i, filler);
 
-        // Withdrawers (x1, x5, x10)
-        inv.setItem(11, makeWithdrawButton(1, viewer, target));
-        inv.setItem(13, makeWithdrawButton(5, viewer, target));
-        inv.setItem(15, makeWithdrawButton(10, viewer, target));
+        // Player head
+        ItemStack head = new ItemStack(Material.PLAYER_HEAD);
+        SkullMeta skull = (SkullMeta) head.getItemMeta();
+        skull.setOwningPlayer(target);
+        skull.setDisplayName(ColorUtil.colorize("&#FF4444" + target.getName()));
+        skull.setLore(Arrays.asList(
+                ColorUtil.colorize("&7Hearts: &c" + hearts + "&8/&c" + maxH),
+                ColorUtil.colorize("&7Status: " + (banned ? "&cDeathbanned" : "&aAlive")),
+                ColorUtil.colorize("&7Kills: &f" + kills + "  &8|  Deaths: &f" + deaths),
+                ColorUtil.colorize("&7Streak: &6" + streak + "  &8(Best: &6" + best + "&8)"),
+                ColorUtil.colorize("&7Hearts Stolen: &c" + stolen)
+        ));
+        head.setItemMeta(skull);
+        inv.setItem(13, head);
 
-        // Close
-        ItemStack close = named(Material.BARRIER, ChatColor.RED + "Close", List.of(ChatColor.GRAY + "Click to close"));
-        tag(close, viewer.getUniqueId(), "close", 0, target);
-        inv.setItem(22, close);
+        // Top row: heart display (up to 9 slots)
+        int shown = Math.min(hearts, 9);
+        for (int i = 0; i < 9; i++) {
+            Material mat = i < shown ? Material.RED_STAINED_GLASS_PANE : Material.GRAY_STAINED_GLASS_PANE;
+            ItemStack h = new ItemStack(mat);
+            ItemMeta m = h.getItemMeta();
+            m.setDisplayName(i < shown
+                    ? ColorUtil.colorize("&c❤ Heart " + (i + 1))
+                    : ColorUtil.colorize("&8❤ Empty"));
+            h.setItemMeta(m);
+            inv.setItem(i, h);
+        }
+
+        // Stats book
+        ItemStack stats = new ItemStack(Material.BOOK);
+        ItemMeta sm = stats.getItemMeta();
+        sm.setDisplayName(ColorUtil.colorize("&b📊 Statistics"));
+        sm.setLore(List.of(
+                ColorUtil.colorize("&7K/D: &f" + (deaths == 0 ? kills : String.format("%.2f", (double) kills / deaths))),
+                ColorUtil.colorize("&7Kill Streak: &6" + streak),
+                ColorUtil.colorize("&7Best Streak: &6" + best)
+        ));
+        stats.setItemMeta(sm);
+        inv.setItem(22, stats);
 
         viewer.openInventory(inv);
     }
 
-    private static ItemStack makeWithdrawButton(int amount, Player viewer, UUID target) {
-        String dn = ChatColor.GREEN + "Withdraw x" + amount;
-        List<String> lore = new ArrayList<>();
-        lore.add(ChatColor.GRAY + "Convert your hearts into items");
-        lore.add(ChatColor.DARK_GRAY + "(Respects minimum hearts)");
-        ItemStack it = named(Material.LIME_DYE, dn, lore);
-        tag(it, viewer.getUniqueId(), "withdraw", amount, target);
-        return it;
-    }
-
-    private static ItemStack named(Material mat, String name, List<String> lore) {
-        ItemStack it = new ItemStack(mat);
-        ItemMeta im = it.getItemMeta();
-        im.setDisplayName(name);
-        if (lore != null) im.setLore(lore);
-        im.addItemFlags(ItemFlag.HIDE_ATTRIBUTES, ItemFlag.HIDE_ENCHANTS, ItemFlag.HIDE_UNBREAKABLE);
-        it.setItemMeta(im);
-        return it;
-    }
-
-    private static void tag(ItemStack it, UUID whoOpened, String action, int amount, UUID target) {
-        ItemMeta im = it.getItemMeta();
-        PersistentDataContainer pdc = im.getPersistentDataContainer();
-        pdc.set(KEY_GUI, PersistentDataType.STRING, "hearts");
-        pdc.set(KEY_ACTION, PersistentDataType.STRING, action);
-        pdc.set(KEY_AMOUNT, PersistentDataType.INTEGER, amount);
-        pdc.set(KEY_TARGET, PersistentDataType.STRING, target.toString());
-        it.setItemMeta(im);
-    }
-
-    /**
-     * Shared withdraw logic (used by GUI and command).
-     * - Deducts hearts
-     * - Gives heart item OR shards (config)
-     * - Syncs player health
-     * - Refreshes holograms/leaderboard
-     */
-    public static void performWithdraw(
-            Player p,
-            UUID id,
-            int amount,
-            HeartManager hearts,
-            ConfigManager cfg,
-            LeaderboardManager leaderboard,
-            CooldownManager cooldowns
-    ) {
-        final String pref = cfg.prefix();
-
-        // Enforce withdraw cooldown (admins bypass)
-        if (!p.hasPermission("minesteal.hearts.admin")) {
-            long left = cooldowns.leftWithdraw(p.getUniqueId());
-            if (left > 0) {
-                p.sendMessage(pref + cfg.msg("cooldown_withdraw", "&7You must wait &c%seconds%s&7 before withdrawing again.")
-                        .replace("%seconds%", String.valueOf(left)));
-                return;
-            }
-        }
-
-        int current = hearts.getHearts(id);
-        int min = cfg.minHearts();
-
-        if (amount <= 0) {
-            p.sendMessage(pref + ChatColor.RED + "Amount must be > 0.");
-            return;
-        }
-        if (current - amount < min) {
-            p.sendMessage(pref + ChatColor.RED + "You can't withdraw that many. Minimum hearts: " + min + ".");
-            return;
-        }
-
-        // Deduct first
-        int after = hearts.addHearts(id, -amount);
-        hearts.syncOnline(p);
-
-        boolean asShards = cfg.cfg().getBoolean("withdraw.withdraw-as-shards", false);
-        int shardsPerHeart = Math.max(1, cfg.cfg().getInt("withdraw.shards_per_heart", 4));
-
-        if (asShards) {
-            int total = amount * shardsPerHeart;
-            var inv = p.getInventory();
-            var left = inv.addItem(HeartItemUtil.createShardItem(cfg, total));
-            if (!left.isEmpty()) {
-                left.values().forEach(item -> p.getWorld().dropItemNaturally(p.getLocation(), item));
-            }
-            p.sendMessage(pref + ChatColor.GRAY + "Withdrew " + ChatColor.RED + amount + ChatColor.GRAY +
-                    " heart(s) as " + ChatColor.RED + total + ChatColor.GRAY + " shard(s). " +
-                    ChatColor.DARK_GRAY + "(Now at " + after + " hearts)");
-        } else {
-            var inv = p.getInventory();
-            var left = inv.addItem(HeartItemUtil.createHeartItem(cfg, amount));
-            if (!left.isEmpty()) {
-                left.values().forEach(item -> p.getWorld().dropItemNaturally(p.getLocation(), item));
-            }
-            p.sendMessage(pref + ChatColor.GRAY + "Withdrew " + ChatColor.RED + amount + ChatColor.GRAY +
-                    " heart item(s). " + ChatColor.DARK_GRAY + "(Now at " + after + " hearts)");
-        }
-
-        // Start cooldown timer and visual updates
-        cooldowns.markWithdraw(p.getUniqueId());
-        DHRefresher.refreshAll(MineSteal.get(), cfg, leaderboard);
+    private ItemStack makeFiller(String materialName) {
+        Material mat = Material.matchMaterial(materialName);
+        if (mat == null) mat = Material.BLACK_STAINED_GLASS_PANE;
+        ItemStack item = new ItemStack(mat);
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName(" ");
+        item.setItemMeta(meta);
+        return item;
     }
 }

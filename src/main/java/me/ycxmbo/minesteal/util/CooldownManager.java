@@ -1,46 +1,67 @@
 package me.ycxmbo.minesteal.util;
 
-import me.ycxmbo.minesteal.MineSteal;
-import me.ycxmbo.minesteal.config.ConfigManager;
-
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Generic per-player, per-action cooldown tracker.
+ */
 public class CooldownManager {
 
-    private final ConfigManager cfg;
+    private final Map<String, Map<UUID, Long>> cooldowns = new ConcurrentHashMap<>();
 
-    private final Map<UUID, Long> consume = new HashMap<>();
-    private final Map<UUID, Long> withdraw = new HashMap<>();
-    private final Map<UUID, Long> requestRevive = new HashMap<>();
+    public CooldownManager() {}
 
-    public CooldownManager(MineSteal plugin, ConfigManager cfg) {
-        this.cfg = cfg;
+    public boolean isOnCooldown(String action, UUID uuid) {
+        Map<UUID, Long> map = cooldowns.get(action);
+        if (map == null) return false;
+        Long expiry = map.get(uuid);
+        if (expiry == null) return false;
+        if (System.currentTimeMillis() >= expiry) { map.remove(uuid); return false; }
+        return true;
     }
 
-    private long now() {
-        return System.currentTimeMillis();
+    public long remainingSeconds(String action, UUID uuid) {
+        Map<UUID, Long> map = cooldowns.get(action);
+        if (map == null) return 0;
+        Long expiry = map.get(uuid);
+        if (expiry == null || System.currentTimeMillis() >= expiry) return 0;
+        return (long) Math.ceil((expiry - System.currentTimeMillis()) / 1000.0);
     }
 
-    private long left(Map<UUID, Long> map, UUID id, int seconds) {
-        Long last = map.get(id);
-        if (last == null) return 0;
-        long passMs = now() - last;
-        long needMs = seconds * 1000L;
-        if (passMs >= needMs) return 0;
-        return (needMs - passMs + 999) / 1000; // ceil seconds left
+    public void setCooldown(String action, UUID uuid, int seconds) {
+        cooldowns.computeIfAbsent(action, k -> new ConcurrentHashMap<>())
+                .put(uuid, System.currentTimeMillis() + seconds * 1000L);
     }
 
-    // Consume
-    public long leftConsume(UUID id) { return left(consume, id, cfg.cdConsume()); }
-    public void markConsume(UUID id) { if (cfg.cdConsume() > 0) consume.put(id, now()); }
+    public void setCooldownMs(String action, UUID uuid, long millis) {
+        cooldowns.computeIfAbsent(action, k -> new ConcurrentHashMap<>())
+                .put(uuid, System.currentTimeMillis() + millis);
+    }
 
-    // Withdraw
-    public long leftWithdraw(UUID id) { return left(withdraw, id, cfg.cdWithdraw()); }
-    public void markWithdraw(UUID id) { if (cfg.cdWithdraw() > 0) withdraw.put(id, now()); }
+    public void clearCooldown(String action, UUID uuid) {
+        Map<UUID, Long> map = cooldowns.get(action);
+        if (map != null) map.remove(uuid);
+    }
 
-    // Request revive
-    public long leftRequestRevive(UUID id) { return left(requestRevive, id, cfg.cdRequestRevive()); }
-    public void markRequestRevive(UUID id) { if (cfg.cdRequestRevive() > 0) requestRevive.put(id, now()); }
+    public void clearAll(UUID uuid) {
+        cooldowns.values().forEach(map -> map.remove(uuid));
+    }
+
+    // Named action constants
+    public static final String CONSUME    = "consume";
+    public static final String WITHDRAW   = "withdraw";
+    public static final String DEPOSIT    = "deposit";
+    public static final String GIVE       = "give";
+    public static final String REVIVE     = "revive";
+    public static final String BOUNTY     = "bounty";
+    public static final String LAST_STAND = "last_stand";
+    public static final String GUI_CLICK  = "gui_click";
+
+    // Legacy wrappers for old code
+    public long leftConsume(UUID id, int seconds) { return remainingSeconds(CONSUME, id); }
+    public long leftWithdraw(UUID id, int seconds) { return remainingSeconds(WITHDRAW, id); }
+    public void markConsume(UUID id, int seconds) { setCooldown(CONSUME, id, seconds); }
+    public void markWithdraw(UUID id, int seconds) { setCooldown(WITHDRAW, id, seconds); }
 }

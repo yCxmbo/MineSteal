@@ -1,130 +1,198 @@
 package me.ycxmbo.minesteal;
 
+import me.ycxmbo.minesteal.api.MineStealAPI;
 import me.ycxmbo.minesteal.commands.HeartsCommand;
+import me.ycxmbo.minesteal.commands.MineStealCommand;
 import me.ycxmbo.minesteal.commands.MsGiveCommand;
 import me.ycxmbo.minesteal.commands.ReviveCommand;
 import me.ycxmbo.minesteal.config.ConfigManager;
 import me.ycxmbo.minesteal.crafting.CraftingManager;
-import me.ycxmbo.minesteal.hearts.HeartManager;
-import me.ycxmbo.minesteal.listeners.DeathListener;
-import me.ycxmbo.minesteal.listeners.GUIListener;
-import me.ycxmbo.minesteal.listeners.HeartItemListener;
-import me.ycxmbo.minesteal.listeners.JoinSyncListener;
-import me.ycxmbo.minesteal.listeners.PveDropListener;
-import me.ycxmbo.minesteal.listeners.ReviveTokenListener;
+import me.ycxmbo.minesteal.database.DatabaseManager;
+import me.ycxmbo.minesteal.listeners.*;
+import me.ycxmbo.minesteal.managers.*;
 import me.ycxmbo.minesteal.placeholders.MineStealExpansion;
 import me.ycxmbo.minesteal.util.CooldownManager;
 import me.ycxmbo.minesteal.util.DHRefresher;
 import me.ycxmbo.minesteal.util.LeaderboardManager;
+import net.milkbowl.vault.economy.Economy;
 import org.bukkit.Bukkit;
+import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 
+/**
+ * MineSteal — Professional Lifesteal SMP plugin.
+ *
+ * Architecture:
+ *   ConfigManager       → All configuration access
+ *   DatabaseManager     → Async SQLite/MySQL persistence
+ *   HeartManager        → In-memory heart cache, backed by DB
+ *   BountyManager       → Bounty system
+ *   CombatLogManager    → PvP combat tagging and logout punishment
+ *   KillstreakManager   → Killstreak tracking and milestone rewards
+ *   AntiAbuseManager    → Kill-farming and alt detection
+ *   PvpTimerManager     → New-player PvP protection
+ *   CooldownManager     → Generic per-player cooldowns
+ *   CraftingManager     → Custom recipe registration
+ *   LeaderboardManager  → Snapshot wrappers for GUIs and holograms
+ *   MineStealAPI        → Public developer API
+ */
 public final class MineSteal extends JavaPlugin {
 
     private static MineSteal instance;
 
-    private ConfigManager config;
-    private HeartManager hearts;
-    private LeaderboardManager leaderboard;
-    private CraftingManager crafting;
-    private CooldownManager cooldowns;
-
-    private int holoRefreshTaskId = -1;
-
-    /* -------- Singletons / accessors -------- */
+    // ---- Core services ----
+    private ConfigManager configManager;
+    private DatabaseManager databaseManager;
+    private HeartManager heartManager;
+    private BountyManager bountyManager;
+    private CombatLogManager combatLogManager;
+    private KillstreakManager killstreakManager;
+    private AntiAbuseManager antiAbuseManager;
+    private PvpTimerManager pvpTimerManager;
+    private CooldownManager cooldownManager;
+    private CraftingManager craftingManager;
+    private LeaderboardManager leaderboardManager;
+    private Economy economy;
+    private int holoTaskId = -1;
 
     public static MineSteal get() { return instance; }
-    public ConfigManager config() { return config; }
-    public HeartManager hearts() { return hearts; }
-    public LeaderboardManager leaderboard() { return leaderboard; }
-    public CraftingManager crafting() { return crafting; }
-    public CooldownManager cooldowns() { return cooldowns; }
 
-    /* ---------------- Lifecycle ---------------- */
+    // ---- Accessor methods (for injection into listeners/commands) ----
+    public ConfigManager     getConfigManager()     { return configManager; }
+    public DatabaseManager   getDatabaseManager()   { return databaseManager; }
+    public HeartManager      getHeartManager()      { return heartManager; }
+    public BountyManager     getBountyManager()     { return bountyManager; }
+    public CombatLogManager  getCombatLogManager()  { return combatLogManager; }
+    public KillstreakManager getKillstreakManager() { return killstreakManager; }
+    public AntiAbuseManager  getAntiAbuseManager()  { return antiAbuseManager; }
+    public PvpTimerManager   getPvpTimerManager()   { return pvpTimerManager; }
+    public CooldownManager   getCooldownManager()   { return cooldownManager; }
+    public CraftingManager   getCraftingManager()   { return craftingManager; }
+    public LeaderboardManager getLeaderboardManager() { return leaderboardManager; }
+    public Economy           getEconomy()           { return economy; }
 
     @Override
     public void onEnable() {
         instance = this;
 
-        // Config
-        this.config = new ConfigManager(this);
-        this.config.load();
+        // ---- Config ----
+        configManager = new ConfigManager(this);
+        configManager.load();
 
-        // Core managers
-        this.hearts = new HeartManager(this);                     // single-file storage + HP sync
-        this.leaderboard = new LeaderboardManager(this, hearts, config);
-        this.crafting = new CraftingManager(this, config);
-        this.cooldowns = new CooldownManager(this, config);
-        this.crafting.registerRecipes();
+        // ---- Database ----
+        databaseManager = new DatabaseManager(this, configManager);
+        try {
+            databaseManager.init();
+        } catch (Exception e) {
+            getLogger().severe("[MineSteal] Database init failed: " + e.getMessage());
+            getServer().getPluginManager().disablePlugin(this);
+            return;
+        }
 
-        // Commands
-        HeartsCommand heartsCmd = new HeartsCommand(this, hearts, config, crafting, leaderboard); // NOTE: 5 args
+        // ---- Managers ----
+        heartManager      = new HeartManager(this, configManager, databaseManager);
+        heartManager.loadAll();
+
+        bountyManager     = new BountyManager(this, configManager, databaseManager);
+        bountyManager.loadAll();
+
+        combatLogManager  = new CombatLogManager(this, configManager);
+        killstreakManager = new KillstreakManager(this, configManager);
+        antiAbuseManager  = new AntiAbuseManager(configManager);
+        pvpTimerManager   = new PvpTimerManager(this, configManager);
+        cooldownManager   = new CooldownManager();
+        leaderboardManager = new LeaderboardManager(this, configManager);
+
+        // ---- Crafting ----
+        craftingManager = new CraftingManager(this, configManager);
+        craftingManager.registerRecipes();
+
+        // ---- Vault Economy ----
+        if (configManager.economyEnabled()) setupEconomy();
+
+        // ---- Commands ----
+        MineStealCommand msCmd = new MineStealCommand(this);
+        getCommand("minesteal").setExecutor(msCmd);
+        getCommand("minesteal").setTabCompleter(msCmd);
+
+        HeartsCommand heartsCmd = new HeartsCommand(this);
         getCommand("hearts").setExecutor(heartsCmd);
         getCommand("hearts").setTabCompleter(heartsCmd);
 
-        ReviveCommand reviveCmd = new ReviveCommand(this, hearts, config);
+        ReviveCommand reviveCmd = new ReviveCommand(this);
         getCommand("revive").setExecutor(reviveCmd);
 
-        MsGiveCommand msGive = new MsGiveCommand(this, config);
+        MsGiveCommand msGive = new MsGiveCommand(this);
         getCommand("msgive").setExecutor(msGive);
         getCommand("msgive").setTabCompleter(msGive);
 
-        // Listeners
-        Bukkit.getPluginManager().registerEvents(new GUIListener(this, hearts, config), this);
-        Bukkit.getPluginManager().registerEvents(new HeartItemListener(hearts, config, cooldowns), this);
-        Bukkit.getPluginManager().registerEvents(new JoinSyncListener(hearts), this);
-        Bukkit.getPluginManager().registerEvents(new DeathListener(this, hearts, config), this);
-        Bukkit.getPluginManager().registerEvents(new ReviveTokenListener(this, hearts, config), this);
-        Bukkit.getPluginManager().registerEvents(new PveDropListener(this, config), this);
+        // ---- Listeners ----
+        var pm = Bukkit.getPluginManager();
+        pm.registerEvents(new JoinSyncListener(this),     this);
+        pm.registerEvents(new DeathListener(this),         this);
+        pm.registerEvents(new HeartItemListener(this),     this);
+        pm.registerEvents(new ReviveTokenListener(this),   this);
+        pm.registerEvents(new PveDropListener(this),       this);
+        pm.registerEvents(new CombatLogListener(this),     this);
+        pm.registerEvents(new LastStandListener(this),     this);
+        pm.registerEvents(new TotemListener(this),         this);
+        pm.registerEvents(new GUIListener(this),           this);
 
-        // PlaceholderAPI expansion (optional)
+        // ---- PlaceholderAPI ----
         if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
-            try { new MineStealExpansion(this).register(); } catch (Throwable ignored) {}
+            try { new MineStealExpansion(this).register(); }
+            catch (Throwable t) { getLogger().warning("[PAPI] Registration failed: " + t.getMessage()); }
         }
 
-        // Background hologram refresh
+        // ---- Hologram refresher ----
         startHologramRefresher();
 
-        getLogger().info("MineSteal enabled.");
+        // ---- Public API ----
+        new MineStealAPI(this);
+
+        getLogger().info("MineSteal v" + getDescription().getVersion() + " enabled.");
     }
 
     @Override
     public void onDisable() {
-        // Cancel repeating tasks
-        if (holoRefreshTaskId != -1) {
-            Bukkit.getScheduler().cancelTask(holoRefreshTaskId);
-            holoRefreshTaskId = -1;
+        if (holoTaskId != -1) {
+            Bukkit.getScheduler().cancelTask(holoTaskId);
+            holoTaskId = -1;
         }
-        // Recipes + data
-        if (crafting != null) crafting.unregisterAll();
-        if (hearts != null) hearts.flushAll();
-
+        if (craftingManager != null) craftingManager.unregisterAll();
+        if (heartManager != null) heartManager.flushAll();
+        if (databaseManager != null) databaseManager.close();
         getLogger().info("MineSteal disabled.");
     }
 
-    /* ---------------- Hologram refresher ---------------- */
+    // ---- Internals ----
+
+    private void setupEconomy() {
+        if (getServer().getPluginManager().getPlugin("Vault") == null) {
+            getLogger().info("[Economy] Vault not found — economy features disabled.");
+            return;
+        }
+        RegisteredServiceProvider<Economy> rsp =
+                getServer().getServicesManager().getRegistration(Economy.class);
+        if (rsp == null) {
+            getLogger().info("[Economy] No economy provider found — economy features disabled.");
+            return;
+        }
+        economy = rsp.getProvider();
+        getLogger().info("[Economy] Hooked into " + economy.getName());
+    }
 
     public void startHologramRefresher() {
-        // Cancel any existing
-        if (holoRefreshTaskId != -1) {
-            Bukkit.getScheduler().cancelTask(holoRefreshTaskId);
-            holoRefreshTaskId = -1;
+        if (holoTaskId != -1) {
+            Bukkit.getScheduler().cancelTask(holoTaskId);
+            holoTaskId = -1;
         }
+        if (!configManager.hologramsEnabled()) return;
 
-        if (!config.hologramsEnabled()) return;
-
-        long period = Math.max(5, config.hologramUpdateSeconds()) * 20L;
-        holoRefreshTaskId = Bukkit.getScheduler().runTaskTimer(
-                this,
-                () -> {
-                    try {
-                        DHRefresher.refreshAll(this, config, leaderboard);
-                    } catch (Throwable t) {
-                        getLogger().warning("Hologram refresh failed: " + t.getMessage());
-                    }
-                },
-                40L,  // initial delay (2s)
-                period
-        ).getTaskId();
+        long period = Math.max(5, configManager.hologramUpdateSeconds()) * 20L;
+        holoTaskId = Bukkit.getScheduler().runTaskTimer(this, () -> {
+            try { DHRefresher.refreshAll(this, configManager, leaderboardManager); }
+            catch (Throwable t) { getLogger().warning("[Holo] Refresh error: " + t.getMessage()); }
+        }, 40L, period).getTaskId();
     }
 }
