@@ -15,14 +15,22 @@ public final class DHRefresher {
 
     private DHRefresher() {}
 
+    /** Set to true after a fatal reflection error so we stop spamming the console. */
+    private static boolean disabled = false;
+
     public static void refreshAll(MineSteal plugin, ConfigManager config, LeaderboardManager lb) {
-        if (!config.hologramsEnabled()) return;
+        if (!config.hologramsEnabled() || disabled) return;
         try {
             Class.forName("eu.decentsoftware.holograms.api.DHAPI");
             doRefresh(plugin, config, lb);
         } catch (ClassNotFoundException ignored) {
+        } catch (NoSuchMethodException e) {
+            disabled = true;
+            plugin.getLogger().log(Level.WARNING,
+                "[DHRefresher] DecentHolograms API incompatibility — method not found: " + e.getMessage()
+                + ". Hologram refresh has been disabled. Update DecentHolograms or report this to the plugin author.");
         } catch (Exception e) {
-            plugin.getLogger().log(Level.WARNING, "[DHRefresher] " + e.getMessage());
+            plugin.getLogger().log(Level.WARNING, "[DHRefresher] " + e.getClass().getSimpleName() + ": " + e.getMessage());
         }
     }
 
@@ -40,7 +48,15 @@ public final class DHRefresher {
         List<PlayerData> top = lb.topByHearts(size * 5);
 
         Object allHolograms = getAll.invoke(null);
-        if (!(allHolograms instanceof Iterable<?> hList)) return;
+
+        Iterable<?> hList;
+        if (allHolograms instanceof java.util.Map<?, ?> map) {
+            hList = map.values();
+        } else if (allHolograms instanceof Iterable<?> iterable) {
+            hList = iterable;
+        } else {
+            return;
+        }
 
         for (Object holo : hList) {
             String id = (String) getId.invoke(holo);
