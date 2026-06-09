@@ -11,6 +11,7 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
 /**
@@ -73,6 +74,15 @@ public class DatabaseManager {
 
     public void close() {
         io.shutdown();
+        try {
+            if (!io.awaitTermination(10, TimeUnit.SECONDS)) {
+                plugin.getLogger().warning("[DB] IO executor did not finish in 10s, forcing shutdown.");
+                io.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            io.shutdownNow();
+            Thread.currentThread().interrupt();
+        }
         if (dataSource != null && !dataSource.isClosed()) dataSource.close();
     }
 
