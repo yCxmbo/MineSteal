@@ -2,6 +2,7 @@ package me.ycxmbo.minesteal.managers;
 
 import me.ycxmbo.minesteal.MineSteal;
 import me.ycxmbo.minesteal.config.ConfigManager;
+import me.ycxmbo.minesteal.database.PlayerData;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.scheduler.BukkitTask;
