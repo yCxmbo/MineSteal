@@ -4,6 +4,7 @@ import me.ycxmbo.minesteal.MineSteal;
 import me.ycxmbo.minesteal.config.ConfigManager;
 import me.ycxmbo.minesteal.database.PlayerData;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 
@@ -15,14 +16,22 @@ public final class DHRefresher {
 
     private DHRefresher() {}
 
+    private static String lastWarning;
+
     public static void refreshAll(MineSteal plugin, ConfigManager config, LeaderboardManager lb) {
         if (!config.hologramsEnabled()) return;
         try {
             Class.forName("eu.decentsoftware.holograms.api.DHAPI");
             doRefresh(plugin, config, lb);
+            lastWarning = null;
         } catch (ClassNotFoundException ignored) {
         } catch (Exception e) {
-            plugin.getLogger().log(Level.WARNING, "[DHRefresher] " + e.getMessage());
+            // Only log each distinct failure once, or this fires every refresh tick.
+            String msg = e.toString();
+            if (!msg.equals(lastWarning)) {
+                lastWarning = msg;
+                plugin.getLogger().log(Level.WARNING, "[DHRefresher] " + msg);
+            }
         }
     }
 
@@ -31,9 +40,10 @@ public final class DHRefresher {
         Class<?> dhapi = Class.forName("eu.decentsoftware.holograms.api.DHAPI");
         Class<?> holoClass = Class.forName("eu.decentsoftware.holograms.api.holograms.Hologram");
 
-        java.lang.reflect.Method getAll = dhapi.getMethod("getHolograms");
+        // DHAPI has no getHolograms(); the registry lives on Hologram.getCachedHolograms().
+        java.lang.reflect.Method getAll = holoClass.getMethod("getCachedHolograms");
         java.lang.reflect.Method getId  = holoClass.getMethod("getName");
-        java.lang.reflect.Method setLine = dhapi.getMethod("setHologramLine", holoClass, int.class, String.class);
+        java.lang.reflect.Method setLines = dhapi.getMethod("setHologramLines", holoClass, List.class);
 
         String prefix = config.hologramIdPrefix();
         int size = config.hologramDefaultSize();
@@ -54,17 +64,18 @@ public final class DHRefresher {
             List<PlayerData> pageData = top.subList(
                     Math.min(start, top.size()), Math.min(start + size, top.size()));
 
-            String header = ColorUtil.colorize(config.hologramHeaderFmt().replace("%page%", String.valueOf(page)));
-            setLine.invoke(null, holo, 0, header);
+            List<String> lines = new ArrayList<>(pageData.size() + 1);
+            lines.add(ColorUtil.colorize(config.hologramHeaderFmt().replace("%page%", String.valueOf(page))));
 
             for (int i = 0; i < pageData.size(); i++) {
                 PlayerData d = pageData.get(i);
-                String line = ColorUtil.colorize(config.hologramEntryFmt()
+                lines.add(ColorUtil.colorize(config.hologramEntryFmt()
                         .replace("%rank%",   String.valueOf(start + i + 1))
                         .replace("%name%",   d.getName() != null ? d.getName() : "Unknown")
-                        .replace("%hearts%", String.valueOf(d.getHearts())));
-                setLine.invoke(null, holo, i + 1, line);
+                        .replace("%hearts%", String.valueOf(d.getHearts()))));
             }
+
+            setLines.invoke(null, holo, lines);
         }
     }
 }
