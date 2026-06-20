@@ -118,7 +118,7 @@ public class MineStealCommand implements CommandExecutor, TabCompleter {
 
         ItemStack item = config.withdrawAsShards()
                 ? HeartItemUtil.createShardItem(config, amount * config.shardsPerHeart())
-                : HeartItemUtil.createHeartItem(config, amount);
+                : HeartItemUtil.createHeartItem(config, amount, p);
         p.getInventory().addItem(item);
         cd.setCooldown(CooldownManager.WITHDRAW, p.getUniqueId(), config.cdWithdraw());
         p.sendMessage(config.msg("withdraw-success", "%amount%", String.valueOf(amount)));

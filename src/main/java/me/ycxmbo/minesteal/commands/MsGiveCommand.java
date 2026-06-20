@@ -47,10 +47,13 @@ public class MsGiveCommand implements CommandExecutor, TabCompleter {
                 sender.sendMessage(config.msg("invalid-number", "%input%", args[2])); return true;
             }
         }
+        if (amount < 1) {
+            sender.sendMessage(config.msg("invalid-amount")); return true;
+        }
 
         ItemStack item;
         switch (type) {
-            case "heart" -> item = HeartItemUtil.createHeartItem(config, amount);
+            case "heart" -> item = HeartItemUtil.createHeartItem(config, amount, target);
             case "shard" -> item = HeartItemUtil.createShardItem(config, amount);
             case "token" -> item = HeartItemUtil.createTokenItem(config, amount);
             default -> {

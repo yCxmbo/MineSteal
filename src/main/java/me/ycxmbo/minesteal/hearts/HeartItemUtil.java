@@ -6,6 +6,7 @@ import me.ycxmbo.minesteal.util.ColorUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
@@ -28,6 +29,16 @@ public final class HeartItemUtil {
     private HeartItemUtil() {}
 
     public static ItemStack createHeartItem(ConfigManager cfg, int amount) {
+        return createHeartItem(cfg, amount, null);
+    }
+
+    /**
+     * Creates a heart item, resolving the {@code %hearts%} and {@code %max%} lore
+     * placeholders. When {@code viewer} is non-null, {@code %hearts%} is filled with
+     * that player's current heart count; otherwise it falls back to the configured
+     * maximum so the lore never shows a raw placeholder.
+     */
+    public static ItemStack createHeartItem(ConfigManager cfg, int amount, OfflinePlayer viewer) {
         Material mat = parseMaterial(cfg.heartItemMaterial(), Material.NETHER_WART);
         ItemStack item = new ItemStack(mat, Math.max(1, amount));
         ItemMeta meta = item.getItemMeta();
@@ -37,6 +48,7 @@ public final class HeartItemUtil {
         meta.setCustomModelData(cfg.heartModelData());
 
         List<String> lore = cfg.heartItemLore().stream()
+                .map(line -> applyHeartPlaceholders(line, cfg, viewer))
                 .map(ColorUtil::colorize)
                 .collect(Collectors.toList());
         if (!lore.isEmpty()) meta.setLore(lore);
@@ -116,6 +128,21 @@ public final class HeartItemUtil {
 
     public static boolean isTokenItem(ItemStack item) {
         return hasTag(item, TOKEN_TAG);
+    }
+
+    /**
+     * Replaces the {@code %hearts%} / {@code %max%} placeholders found in heart item lore.
+     * {@code %max%} always resolves to the configured maximum; {@code %hearts%} resolves to
+     * the viewer's current hearts when known, falling back to the maximum otherwise.
+     */
+    private static String applyHeartPlaceholders(String line, ConfigManager cfg, OfflinePlayer viewer) {
+        if (line == null) return "";
+        int max = cfg.maxHearts();
+        int hearts = (viewer != null)
+                ? MineSteal.get().getHeartManager().getHearts(viewer.getUniqueId())
+                : max;
+        return line.replace("%hearts%", String.valueOf(hearts))
+                   .replace("%max%", String.valueOf(max));
     }
 
     private static boolean hasTag(ItemStack item, String tagName) {
