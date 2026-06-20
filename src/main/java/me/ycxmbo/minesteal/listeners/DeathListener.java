@@ -74,7 +74,7 @@ public class DeathListener implements Listener {
             plugin.getHeartManager().addHearts(killer.getUniqueId(),
                     killerGain, HeartChangeEvent.Cause.KILL, killer);
         } else if (config.dropOnDeath()) {
-            ItemStack heartItem = HeartItemUtil.createHeartItem(config, heartsToLose);
+            ItemStack heartItem = HeartItemUtil.createHeartItem(config, heartsToLose, victim);
             victim.getWorld().dropItemNaturally(victim.getLocation(), heartItem);
         }
 
@@ -131,7 +131,7 @@ public class DeathListener implements Listener {
 
         if (config.dropOnDeath()) {
             victim.getWorld().dropItemNaturally(victim.getLocation(),
-                    HeartItemUtil.createHeartItem(config, heartsToLose));
+                    HeartItemUtil.createHeartItem(config, heartsToLose, victim));
         }
 
         if (config.deathbanEnabled() && newHearts <= config.minHearts()) {
