@@ -6,6 +6,9 @@ import me.ycxmbo.minesteal.hearts.HeartItemUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.PrepareItemCraftEvent;
 import org.bukkit.inventory.*;
 
 import java.util.List;
@@ -15,7 +18,7 @@ import java.util.Objects;
  * Manages all custom crafting recipes for MineSteal items.
  * Recipes are registered on enable and after config reload.
  */
-public final class CraftingManager {
+public final class CraftingManager implements Listener {
 
     private final MineSteal plugin;
     private final ConfigManager config;
@@ -64,12 +67,39 @@ public final class CraftingManager {
 
     // ---- Revive Token crafting ----
 
+    // ---- PrepareItemCraft guard for heart PDC tags ----
+
+    @EventHandler
+    public void onPrepareCraft(PrepareItemCraftEvent event) {
+        Recipe recipe = event.getRecipe();
+        if (!(recipe instanceof ShapedRecipe shaped)) return;
+        if (!REVIVE_TOKEN_KEY.equals(shaped.getKey())) return;
+
+        for (ItemStack ingredient : event.getInventory().getMatrix()) {
+            if (ingredient == null || ingredient.getType() == Material.AIR) continue;
+            // If this slot holds the heart material but lacks the PDC tag, reject.
+            Material heartMat = parseMaterialFromConfig();
+            if (ingredient.getType() == heartMat && !HeartItemUtil.isHeartItem(ingredient)) {
+                event.getInventory().setResult(null);
+                return;
+            }
+        }
+    }
+
+    private Material parseMaterialFromConfig() {
+        String matName = config.cfg().getString("heart-item.material", "NETHER_WART");
+        Material m = Material.matchMaterial(matName != null ? matName : "NETHER_WART");
+        return m != null ? m : Material.NETHER_WART;
+    }
+
     private void addReviveTokenRecipe() {
         ItemStack token = HeartItemUtil.createTokenItem(config, 1);
-        ItemStack heart = HeartItemUtil.createHeartItem(config, 1);
         ItemStack shard = HeartItemUtil.createShardItem(config, 1);
 
-        RecipeChoice.ExactChoice heartChoice = new RecipeChoice.ExactChoice(heart);
+        // Use MaterialChoice for hearts so that dynamic lore (player-specific %hearts%)
+        // doesn't prevent ExactChoice from matching; PDC tag is validated in onPrepareCraft.
+        Material heartMat = parseMaterialFromConfig();
+        RecipeChoice.MaterialChoice heartChoice = new RecipeChoice.MaterialChoice(heartMat);
         RecipeChoice.ExactChoice shardChoice = new RecipeChoice.ExactChoice(shard);
 
         String matName = config.cfg().getString("revive-token.recipe.extra-material", "NETHER_STAR");

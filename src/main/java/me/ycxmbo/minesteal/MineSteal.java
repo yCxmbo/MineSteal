@@ -128,6 +128,7 @@ public final class MineSteal extends JavaPlugin {
 
         // ---- Listeners ----
         var pm = Bukkit.getPluginManager();
+        pm.registerEvents(craftingManager,                 this);
         pm.registerEvents(new JoinSyncListener(this),     this);
         pm.registerEvents(new DeathListener(this),         this);
         pm.registerEvents(new HeartItemListener(this),     this);
